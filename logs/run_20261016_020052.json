@@ -1,0 +1,15 @@
+{
+  "date": "20261016_020052",
+  "étapes": [
+    "growth"
+  ],
+  "tokens": {
+    "total_tokens": 85894,
+    "prompt_tokens": 70013,
+    "cached_prompt_tokens": 50000,
+    "completion_tokens": 15881,
+    "reasoning_tokens": 2154,
+    "cache_creation_tokens": 0,
+    "successful_requests": 8
+  }
+}

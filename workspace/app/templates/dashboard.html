@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+{% block title %}Tableau de Bord{% endblock %}
+{% block content %}
+<h1>Tableau de Bord</h1>
+
+<div style="display: flex; gap: 2rem; margin-bottom: 2rem;">
+    <div style="padding: 1rem; border: 1px solid #ccc; border-radius: 8px; flex: 1;">
+        <h3>Chiffre d'Affaires (Payé)</h3>
+        <p style="font-size: 2rem; font-weight: bold; color: #059669;">{{ "%.2f"|format(ca_total) }} €</p>
+    </div>
+    <div style="padding: 1rem; border: 1px solid #ccc; border-radius: 8px; flex: 1;">
+        <h3>En attente de paiement</h3>
+        <p style="font-size: 2rem; font-weight: bold; color: #dc2626;">{{ "%.2f"|format(en_attente) }} €</p>
+    </div>
+</div>
+
+<h2>Dernières Factures</h2>
+<table>
+    <thead>
+        <tr>
+            <th>Numéro</th>
+            <th>Date</th>
+            <th>Statut</th>
+            <th>Actions</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for f in factures %}
+        <tr>
+            <td><a href="/invoices/{{ f.id }}">{{ f.numero }}</a></td>
+            <td>{{ f.date_emission }}</td>
+            <td><span class="status-badge status-{{ f.statut }}">{{ f.statut }}</span></td>
+            <td>
+                <form action="/invoices/{{ f.id }}/toggle-payment" method="post" style="display:inline;">
+                    <button type="submit">{% if f.statut == 'PAYE' %}Marquer Impayé{% else %}Marquer Payé{% endif %}</button>
+                </form>
+            </td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% endblock %}

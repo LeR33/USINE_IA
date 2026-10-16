@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% block title %}Détail Client{% endblock %}
+{% block content %}
+<h1>{{ client.nom }}</h1>
+<p>Adresse: {{ client.adresse or 'Non renseignée' }}</p>
+<p>Tél: {{ client.telephone or 'Non renseigné' }}</p>
+<p>Email: {{ client.email or 'Non renseigné' }}</p>
+
+<h2>Interventions</h2>
+<form action="/interventions/create" method="post">
+    <input type="hidden" name="client_id" value="{{ client.id }}">
+    <label>Description</label>
+    <input type="text" name="description" required>
+    <label>Date prévue</label>
+    <input type="date" name="date_prevue">
+    <button type="submit">Planifier Intervention</button>
+</form>
+
+<ul>
+    {% for int in client.interventions %}
+    <li>
+        {{ int.numero }} - {{ int.description }} ({{ int.date_prevue }}) 
+        <span class="status-badge status-{{ int.statut }}">{{ int.statut }}</span>
+        {% if int.statut == 'A_FAIRE' %}
+        <form action="/interventions/{{ int.id }}/finish" method="post" style="display:inline;">
+            <button type="submit">Terminer</button>
+        </form>
+        {% endif %}
+        {% if int.statut == 'TERMINE' and not int.facture %}
+        <form action="/invoices/from-intervention/{{ int.id }}" method="post" style="display:inline;">
+            <button type="submit">Facturer</button>
+        </form>
+        {% elif int.facture %}
+        <a href="/invoices/{{ int.facture.id }}">Voir Facture {{ int.facture.numero }}</a>
+        {% endif %}
+    </li>
+    {% endfor %}
+</ul>
+{% endblock %}

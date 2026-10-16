@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+{% block title %}Facture {{ facture.numero }}{% endblock %}
+{% block content %}
+<h1>Facture {{ facture.numero }}</h1>
+<p>Statut: <span class="status-badge status-{{ facture.statut }}">{{ facture.statut }}</span></p>
+<a href="/invoices/{{ facture.id }}/pdf" class="button">Télécharger PDF</a>
+
+<h2>Lignes</h2>
+<table>
+    <thead>
+        <tr>
+            <th>Libellé</th>
+            <th>Qté</th>
+            <th>P.U. HT</th>
+            <th>TVA</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for l in facture.lignes %}
+        <tr>
+            <td>{{ l.libelle }}</td>
+            <td>{{ l.quantite }}</td>
+            <td>{{ l.prix_unitaire_ht }} €</td>
+            <td>{{ l.taux_tva }} %</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% endblock %}

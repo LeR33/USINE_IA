@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+{% block title %}Articles{% endblock %}
+{% block content %}
+<h1>Bibliothèque d'Articles</h1>
+<form action="/articles/create" method="post">
+    <input type="text" name="libelle" placeholder="Libellé" required>
+    <input type="number" step="0.01" name="prix_unitaire_ht" placeholder="Prix HT" required>
+    <input type="number" step="0.1" name="taux_tva" value="20.0" placeholder="TVA %">
+    <button type="submit">Ajouter</button>
+</form>
+
+<table>
+    <thead>
+        <tr>
+            <th>Libellé</th>
+            <th>Prix HT</th>
+            <th>TVA</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for art in articles %}
+        <tr>
+            <td>{{ art.libelle }}</td>
+            <td>{{ art.prix_unitaire_ht }} €</td>
+            <td>{{ art.taux_tva }} %</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% endblock %}

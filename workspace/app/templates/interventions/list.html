@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+{% block title %}Interventions{% endblock %}
+{% block content %}
+<h1>Toutes les Interventions</h1>
+<table>
+    <thead>
+        <tr>
+            <th>Numéro</th>
+            <th>Client</th>
+            <th>Date</th>
+            <th>Statut</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for int in interventions %}
+        <tr>
+            <td>{{ int.numero }}</td>
+            <td>{{ int.client.nom }}</td>
+            <td>{{ int.date_prevue }}</td>
+            <td><span class="status-badge status-{{ int.statut }}">{{ int.statut }}</span></td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% endblock %}

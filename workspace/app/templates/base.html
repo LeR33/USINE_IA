@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FroidPro - {% block title %}{% endblock %}</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/water.css@2/out/water.css">
+    <style>
+        nav { margin-bottom: 2rem; border-bottom: 1px solid #ccc; padding-bottom: 1rem; }
+        nav a { margin-right: 1rem; text-decoration: none; font-weight: bold; }
+        .status-badge { padding: 0.2rem 0.5rem; border-radius: 4px; font-size: 0.8rem; }
+        .status-A_FAIRE { background: #fef3c7; color: #92400e; }
+        .status-TERMINE { background: #d1fae5; color: #065f46; }
+        .status-IMPAYE { background: #fee2e2; color: #991b1b; }
+        .status-PAYE { background: #d1fae5; color: #065f46; }
+    </style>
+</head>
+<body>
+    <nav>
+        <a href="/">Tableau de bord</a>
+        <a href="/clients">Clients</a>
+        <a href="/interventions">Interventions</a>
+        <a href="/articles">Articles</a>
+    </nav>
+    <main>
+        {% block content %}{% endblock %}
+    </main>
+    <footer>
+        <p>&copy; 2024 FroidPro - Gestion de maintenance frigorifique</p>
+    </footer>
+</body>
+</html>

@@ -1,0 +1,5 @@
+crewai-tools>=1.15
+crewai>=1.15
+pytest>=8.0
+python-dotenv>=1.0
+rich>=13.0
