@@ -1,42 +1,54 @@
-{% extends "base.html" %}
-{% block title %}Tableau de Bord{% endblock %}
+{% extends "base.html" %}{% block title %}Tableau de bord{% endblock %}
 {% block content %}
-<h1>Tableau de Bord</h1>
-
-<div style="display: flex; gap: 2rem; margin-bottom: 2rem;">
-    <div style="padding: 1rem; border: 1px solid #ccc; border-radius: 8px; flex: 1;">
-        <h3>Chiffre d'Affaires (Payé)</h3>
-        <p style="font-size: 2rem; font-weight: bold; color: #059669;">{{ "%.2f"|format(ca_total) }} €</p>
-    </div>
-    <div style="padding: 1rem; border: 1px solid #ccc; border-radius: 8px; flex: 1;">
-        <h3>En attente de paiement</h3>
-        <p style="font-size: 2rem; font-weight: bold; color: #dc2626;">{{ "%.2f"|format(en_attente) }} €</p>
-    </div>
+<h1 class="h3 mb-4">Tableau de bord</h1>
+<div class="row g-3 mb-4">
+  {% for icon, label, val in [('bi-calendar-day','Interventions du jour', d.nb_jour), ('bi-calendar-week','Interventions de la semaine', d.nb_semaine),
+     ('bi-hourglass-split','Factures impayées', d.impayees_montant|eur ~ ' (' ~ d.impayees_nb ~ ')'), ('bi-cash-coin','CA du mois (encaissé)', d.ca_mois|eur),
+     ('bi-people','Clients actifs', d.clients_actifs)] %}
+  <div class="col-6 col-xl"><div class="card h-100"><div class="card-body d-flex gap-3 align-items-center">
+    <div class="stat-icon"><i class="bi {{ icon }}"></i></div>
+    <div><div class="text-secondary small">{{ label }}</div><div class="fs-5 fw-bold">{{ val }}</div></div></div></div></div>
+  {% endfor %}
 </div>
-
-<h2>Dernières Factures</h2>
-<table>
-    <thead>
-        <tr>
-            <th>Numéro</th>
-            <th>Date</th>
-            <th>Statut</th>
-            <th>Actions</th>
-        </tr>
-    </thead>
-    <tbody>
-        {% for f in factures %}
-        <tr>
-            <td><a href="/invoices/{{ f.id }}">{{ f.numero }}</a></td>
-            <td>{{ f.date_emission }}</td>
-            <td><span class="status-badge status-{{ f.statut }}">{{ f.statut }}</span></td>
-            <td>
-                <form action="/invoices/{{ f.id }}/toggle-payment" method="post" style="display:inline;">
-                    <button type="submit">{% if f.statut == 'PAYE' %}Marquer Impayé{% else %}Marquer Payé{% endif %}</button>
-                </form>
-            </td>
-        </tr>
-        {% endfor %}
-    </tbody>
-</table>
+<div class="row g-3 mb-4">
+  {% for url, icon, label in [('/interventions/nouveau','bi-plus-circle','Nouvelle intervention'), ('/clients/nouveau','bi-person-plus','Nouveau client'),
+     ('/factures/nouvelle','bi-receipt','Nouvelle facture'), ('/planning','bi-calendar3','Planning'), ('/articles','bi-box-seam','Articles')] %}
+  <div class="col-6 col-md"><a href="{{ url }}" class="btn btn-brand w-100 shortcut"><i class="bi {{ icon }}"></i>{{ label }}</a></div>
+  {% endfor %}
+</div>
+<div class="row g-3">
+  <div class="col-lg-7"><div class="card h-100"><div class="card-body">
+    <h2 class="h6">Chiffre d'affaires encaissé : 6 derniers mois</h2>
+    <canvas id="caChart" height="120"></canvas></div></div></div>
+  <div class="col-lg-5"><div class="card h-100"><div class="card-body">
+    <h2 class="h6">Prochaines interventions</h2>
+    {% for i in d.prochaines %}
+    <a class="d-flex justify-content-between text-decoration-none text-reset py-2 border-bottom" href="/interventions/{{ i.id }}/modifier">
+      <span><strong>{{ i.client.nom }}</strong><br><small class="text-secondary">{{ i.type }}</small></span>
+      <span class="text-end small">{{ i.date|datefr }}<br>{{ i.heure_debut }}</span></a>
+    {% else %}<div class="empty py-3"><i class="bi bi-calendar-check"></i><div>Aucune intervention à venir.</div></div>{% endfor %}
+  </div></div></div>
+  <div class="col-lg-6"><div class="card h-100"><div class="card-body">
+    <h2 class="h6 text-danger">Factures en retard</h2>
+    {% for f in d.en_retard %}
+    <a class="d-flex justify-content-between text-decoration-none text-reset py-2 border-bottom" href="/factures/{{ f.id }}">
+      <span><strong>{{ f.numero }}</strong> · {{ f.client.nom }}</span><span>{{ f.total_ttc|eur }}<br><small class="text-danger">éch. {{ f.date_echeance|datefr }}</small></span></a>
+    {% else %}<div class="empty py-3"><i class="bi bi-emoji-smile"></i><div>Aucune facture en retard.</div></div>{% endfor %}
+  </div></div></div>
+  <div class="col-lg-6"><div class="card h-100"><div class="card-body">
+    <h2 class="h6">Activité récente</h2>
+    {% for a in d.activite %}
+    <a class="d-flex justify-content-between text-decoration-none text-reset py-2 border-bottom" href="{{ a.url }}">
+      <span><span class="badge text-bg-secondary me-2">{{ a.type }}</span>{{ a.texte }}</span><small class="text-secondary">{{ a.date|datefr }}</small></a>
+    {% else %}<div class="empty py-3"><i class="bi bi-activity"></i><div>Aucune activité pour le moment.</div></div>{% endfor %}
+  </div></div></div>
+</div>
 {% endblock %}
+{% block scripts %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+<script>
+const brand = getComputedStyle(document.documentElement).getPropertyValue('--brand').trim();
+new Chart(document.getElementById('caChart'), {type: 'bar',
+  data: {labels: {{ d.graph_labels|tojson }}, datasets: [{label: 'CA TTC (€)', data: {{ d.graph_values|tojson }}, backgroundColor: brand, borderRadius: 6}]},
+  options: {plugins: {legend: {display: false}}, scales: {y: {beginAtZero: true}}}});
+</script>{% endblock %}

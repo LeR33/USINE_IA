@@ -1,85 +1,116 @@
-import os
-from reportlab.lib.pagesizes import letter
-from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
-from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
-from reportlab.lib import colors
-from app import models
+"""Génération du PDF de facture. Toutes les infos société viennent des Paramètres (rien en dur)."""
+from io import BytesIO
+from pathlib import Path
+from xml.sax.saxutils import escape
 
-def generate_invoice_pdf(facture: models.Facture, filepath: str):
-    doc = SimpleDocTemplate(filepath, pagesize=letter)
+from reportlab.lib import colors
+from reportlab.lib.pagesizes import A4
+from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
+from reportlab.lib.units import mm
+from reportlab.platypus import Image, Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
+
+STATIC_DIR = Path(__file__).resolve().parent.parent / "static"
+
+
+def eur(v: float) -> str:
+    return f"{v:,.2f} €".replace(",", " ").replace(".", ",")
+
+
+def _p(text, style):
+    return Paragraph(escape(str(text or "")).replace("\n", "<br/>"), style)
+
+
+def generate_invoice_pdf(facture, parametres) -> bytes:
+    buf = BytesIO()
+    doc = SimpleDocTemplate(buf, pagesize=A4, leftMargin=18 * mm, rightMargin=18 * mm,
+                            topMargin=15 * mm, bottomMargin=15 * mm, title=f"Facture {facture.numero}")
+    ss = getSampleStyleSheet()
+    try:
+        main = colors.HexColor(parametres.couleur_principale or "#0d6efd")
+    except ValueError:
+        main = colors.HexColor("#0d6efd")
+    normal = ParagraphStyle("n", parent=ss["Normal"], fontSize=9.5, leading=13)
+    small = ParagraphStyle("s", parent=normal, fontSize=8, leading=10.5, textColor=colors.HexColor("#555555"))
+    bold = ParagraphStyle("b", parent=normal, fontName="Helvetica-Bold")
+    title = ParagraphStyle("t", parent=ss["Heading1"], fontSize=20, textColor=main, spaceAfter=0)
+    right = ParagraphStyle("r", parent=normal, alignment=2)
+
     story = []
-    styles = getSampleStyleSheet()
-    
-    title_style = ParagraphStyle(
-        'InvoiceTitle',
-        parent=styles['Heading1'],
-        fontSize=20,
-        textColor=colors.HexColor('#1f2937'),
-        spaceAfter=12
-    )
-    
-    normal_style = styles['Normal']
-    
-    story.append(Paragraph(f"FACTURE N° {facture.numero}", title_style))
-    story.append(Spacer(1, 12))
-    
-    # Client info & Company info
-    client = facture.intervention.client if facture.intervention and facture.intervention.client else None
-    client_name = client.nom if client else "Client Inconnu"
-    client_addr = client.adresse if client and client.adresse else ""
-    client_tel = client.telephone if client and client.telephone else ""
-    client_email = client.email if client and client.email else ""
-    
-    info_text = f"""
-    <b>FroidPro SARL</b><br/>
-    123 Rue du Froid, 75001 Paris<br/>
-    SIRET: 123 456 789 00012 - TVA: FR34123456789<br/><br/>
-    <b>Client :</b> {client_name}<br/>
-    {client_addr}<br/>
-    Tél: {client_tel} | Email: {client_email}<br/><br/>
-    <b>Date d'émission :</b> {facture.date_emission}<br/>
-    <b>Statut :</b> {facture.statut}
-    """
-    story.append(Paragraph(info_text, normal_style))
-    story.append(Spacer(1, 20))
-    
-    # Table of lines
-    table_data = [["Libellé", "Qté", "P.U. HT", "TVA %", "Total HT"]]
-    total_ht = 0
-    total_tva = 0
-    
+
+    # En-tête : logo + société | titre facture
+    left = []
+    logo = (STATIC_DIR / "uploads" / parametres.logo) if parametres.logo else None
+    if logo and logo.is_file():
+        try:
+            img = Image(str(logo))
+            ratio = img.imageWidth / img.imageHeight
+            h = min(18 * mm, 55 * mm / ratio)
+            img.drawHeight, img.drawWidth = h, h * ratio
+            img.hAlign = "LEFT"
+            left.append(img)
+        except Exception:  # noqa: BLE001  (logo illisible : on l'ignore)
+            pass
+    left.append(Paragraph(f"<b>{escape(parametres.nom_societe)}</b>", ParagraphStyle("c", parent=normal, fontSize=12)))
+    for line in (parametres.adresse,
+                 f"SIRET : {parametres.siret}" if parametres.siret else "",
+                 f"N° TVA : {parametres.tva_numero}" if parametres.tva_numero else "",
+                 f"Tél : {parametres.telephone}" if parametres.telephone else "",
+                 parametres.email):
+        if line:
+            left.append(_p(line, small))
+    head = Table([[left, [Paragraph("FACTURE", title), _p(f"N° {facture.numero}", right)]]],
+                 colWidths=[100 * mm, 74 * mm])
+    head.setStyle(TableStyle([("VALIGN", (0, 0), (-1, -1), "TOP"), ("ALIGN", (1, 0), (1, 0), "RIGHT")]))
+    story += [head, Spacer(1, 8 * mm)]
+
+    # Client + dates
+    c = facture.client
+    cl = [Paragraph("<b>Facturé à</b>", normal), _p(c.nom, bold)]
+    for line in (c.adresse, c.telephone, c.email):
+        if line:
+            cl.append(_p(line, normal))
+    dates = [_p(f"Date d'émission : {facture.date_emission.strftime('%d/%m/%Y')}", right),
+             _p(f"Échéance : {facture.date_echeance.strftime('%d/%m/%Y')}", right)]
+    if facture.intervention:
+        dates.append(_p(f"Intervention : {facture.intervention.numero}", right))
+    info = Table([[cl, dates]], colWidths=[100 * mm, 74 * mm])
+    info.setStyle(TableStyle([("VALIGN", (0, 0), (-1, -1), "TOP")]))
+    story += [info, Spacer(1, 8 * mm)]
+
+    # Lignes
+    data = [["Désignation", "Qté", "PU HT", "TVA", "Total HT"]]
     for l in facture.lignes:
-        ligne_ht = l.quantite * l.prix_unitaire_ht
-        ligne_tva = ligne_ht * (l.taux_tva / 100.0)
-        total_ht += ligne_ht
-        total_tva += ligne_tva
-        table_data.append([
-            l.libelle,
-            f"{l.quantite}",
-            f"{l.prix_unitaire_ht:.2f} €",
-            f"{l.taux_tva}%",
-            f"{ligne_ht:.2f} €"
-        ])
-        
-    t = Table(table_data, colWidths=[200, 50, 70, 60, 80])
+        data.append([_p(l.designation, normal), f"{l.quantite:g}", eur(l.prix_ht), f"{l.tva:g} %", eur(l.total_ht)])
+    t = Table(data, colWidths=[78 * mm, 16 * mm, 28 * mm, 20 * mm, 32 * mm], repeatRows=1)
     t.setStyle(TableStyle([
-        ('BACKGROUND', (0,0), (-1,0), colors.HexColor('#e5e7eb')),
-        ('TEXTCOLOR', (0,0), (-1,0), colors.HexColor('#1f2937')),
-        ('ALIGN', (0,0), (-1,-1), 'LEFT'),
-        ('ALIGN', (1,0), (-1,-1), 'RIGHT'),
-        ('FONTNAME', (0,0), (-1,0), 'Helvetica-Bold'),
-        ('BOTTOMPADDING', (0,0), (-1,0), 6),
-        ('GRID', (0,0), (-1,-1), 0.5, colors.HexColor('#d1d5db')),
+        ("BACKGROUND", (0, 0), (-1, 0), main), ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
+        ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"), ("FONTSIZE", (0, 0), (-1, -1), 9),
+        ("ALIGN", (1, 0), (-1, -1), "RIGHT"), ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+        ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, colors.HexColor("#f5f7fa")]),
+        ("LINEBELOW", (0, -1), (-1, -1), 0.5, colors.HexColor("#cccccc")),
+        ("TOPPADDING", (0, 0), (-1, -1), 5), ("BOTTOMPADDING", (0, 0), (-1, -1), 5),
     ]))
-    story.append(t)
-    story.append(Spacer(1, 15))
-    
-    total_ttc = total_ht + total_tva
-    totals_text = f"""
-    <b>Total HT :</b> {total_ht:.2f} €<br/>
-    <b>Total TVA :</b> {total_tva:.2f} €<br/>
-    <b>Total TTC :</b> {total_ttc:.2f} €
-    """
-    story.append(Paragraph(totals_text, ParagraphStyle('Totals', parent=normal_style, alignment=2)))
-    
+    story += [t, Spacer(1, 5 * mm)]
+
+    tot = Table([["Total HT", eur(facture.total_ht)], ["TVA", eur(facture.total_tva)],
+                 ["Total TTC", eur(facture.total_ttc)]], colWidths=[40 * mm, 35 * mm], hAlign="RIGHT")
+    tot.setStyle(TableStyle([("ALIGN", (1, 0), (1, -1), "RIGHT"), ("FONTSIZE", (0, 0), (-1, -1), 10),
+                             ("FONTNAME", (0, -1), (-1, -1), "Helvetica-Bold"),
+                             ("LINEABOVE", (0, -1), (-1, -1), 1, main), ("TEXTCOLOR", (0, -1), (-1, -1), main)]))
+    story += [tot, Spacer(1, 8 * mm)]
+
+    # Paiement + mentions
+    pay = []
+    if facture.statut == "payée" and facture.date_paiement:
+        pay.append(f"Facture acquittée le {facture.date_paiement.strftime('%d/%m/%Y')}.")
+    if parametres.conditions_paiement:
+        pay.append(f"Conditions de paiement : {parametres.conditions_paiement}")
+    if parametres.iban:
+        pay.append(f"IBAN : {parametres.iban}")
+    for line in pay:
+        story.append(_p(line, normal))
+    if parametres.mentions_legales:
+        story += [Spacer(1, 6 * mm), _p(parametres.mentions_legales, small)]
+
     doc.build(story)
+    return buf.getvalue()

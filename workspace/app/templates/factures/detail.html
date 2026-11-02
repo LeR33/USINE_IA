@@ -1,0 +1,23 @@
+{% extends "base.html" %}{% block title %}Facture {{ f.numero }}{% endblock %}
+{% block content %}{% set s = f.statut_effectif %}
+<div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+  <h1 class="h3 mb-0">Facture {{ f.numero }} <span class="badge text-bg-{{ {'brouillon':'secondary','envoyée':'info','payée':'success','en retard':'danger'}[s] }}">{{ s }}</span></h1>
+  <div class="d-flex flex-wrap gap-2">
+    <a class="btn btn-outline-secondary" href="/factures/{{ f.id }}/pdf" target="_blank"><i class="bi bi-file-earmark-pdf"></i> PDF</a>
+    {% if f.statut == 'brouillon' %}<form method="post" action="/factures/{{ f.id }}/statut"><input type="hidden" name="statut" value="envoyée"><button class="btn btn-outline-primary"><i class="bi bi-send"></i> Marquer envoyée</button></form>{% endif %}
+    {% if f.statut != 'payée' %}<form method="post" action="/factures/{{ f.id }}/payer"><button class="btn btn-success"><i class="bi bi-check2-circle"></i> Marquer payée</button></form>
+    {% else %}<form method="post" action="/factures/{{ f.id }}/statut"><input type="hidden" name="statut" value="envoyée"><button class="btn btn-outline-secondary">Annuler le paiement</button></form>{% endif %}
+    <form method="post" action="/factures/{{ f.id }}/supprimer" data-confirm="Supprimer la facture {{ f.numero }} ?"><button class="btn btn-outline-danger"><i class="bi bi-trash"></i></button></form></div></div>
+<div class="row g-3"><div class="col-lg-8"><div class="card"><div class="table-responsive"><table class="table mb-0">
+  <thead><tr><th>Désignation</th><th class="text-end">Qté</th><th class="text-end">PU HT</th><th class="text-end">TVA</th><th class="text-end">Total HT</th></tr></thead>
+  <tbody>{% for l in f.lignes %}<tr><td>{{ l.designation }}</td><td class="text-end">{{ '%g'|format(l.quantite) }}</td><td class="text-end">{{ l.prix_ht|eur }}</td><td class="text-end">{{ '%g'|format(l.tva) }} %</td><td class="text-end">{{ l.total_ht|eur }}</td></tr>{% endfor %}</tbody>
+  <tfoot><tr><td colspan="4" class="text-end">Total HT</td><td class="text-end">{{ f.total_ht|eur }}</td></tr>
+  <tr><td colspan="4" class="text-end">TVA</td><td class="text-end">{{ f.total_tva|eur }}</td></tr>
+  <tr class="fw-bold"><td colspan="4" class="text-end">Total TTC</td><td class="text-end">{{ f.total_ttc|eur }}</td></tr></tfoot></table></div></div></div>
+  <div class="col-lg-4"><div class="card"><div class="card-body">
+    <p class="mb-1"><strong>Client :</strong> <a href="/clients/{{ f.client_id }}">{{ f.client.nom }}</a></p>
+    <p class="mb-1"><strong>Émission :</strong> {{ f.date_emission|datefr }}</p>
+    <p class="mb-1"><strong>Échéance :</strong> {{ f.date_echeance|datefr }}</p>
+    {% if f.date_paiement %}<p class="mb-1"><strong>Payée le :</strong> {{ f.date_paiement|datefr }}</p>{% endif %}
+    {% if f.intervention %}<p class="mb-0"><strong>Intervention :</strong> <a href="/interventions/{{ f.intervention_id }}/modifier">{{ f.intervention.numero }}</a></p>{% endif %}
+  </div></div></div></div>{% endblock %}

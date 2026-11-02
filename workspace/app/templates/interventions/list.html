@@ -1,25 +1,31 @@
-{% extends "base.html" %}
-{% block title %}Interventions{% endblock %}
+{% extends "base.html" %}{% block title %}Interventions{% endblock %}
 {% block content %}
-<h1>Toutes les Interventions</h1>
-<table>
-    <thead>
-        <tr>
-            <th>Numéro</th>
-            <th>Client</th>
-            <th>Date</th>
-            <th>Statut</th>
-        </tr>
-    </thead>
-    <tbody>
-        {% for int in interventions %}
-        <tr>
-            <td>{{ int.numero }}</td>
-            <td>{{ int.client.nom }}</td>
-            <td>{{ int.date_prevue }}</td>
-            <td><span class="status-badge status-{{ int.statut }}">{{ int.statut }}</span></td>
-        </tr>
-        {% endfor %}
-    </tbody>
-</table>
-{% endblock %}
+<div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+  <h1 class="h3 mb-0">Interventions</h1>
+  <a href="/interventions/nouveau" class="btn btn-brand"><i class="bi bi-plus-circle"></i> Ajouter</a></div>
+<form class="card card-body mb-3" method="get"><div class="row g-2 align-items-end">
+  <div class="col-md-3"><label class="form-label small" for="q">Recherche</label><input class="form-control" id="q" name="q" value="{{ f.q }}" placeholder="N°, client, technicien…"></div>
+  <div class="col-md-2"><label class="form-label small" for="statut">Statut</label><select class="form-select" id="statut" name="statut"><option value="">Tous</option>
+    {% for s in STATUTS_INTERVENTION %}<option {{ 'selected' if s == f.statut }}>{{ s }}</option>{% endfor %}</select></div>
+  <div class="col-md-3"><label class="form-label small" for="client_id">Client</label><select class="form-select" id="client_id" name="client_id"><option value="">Tous</option>
+    {% for c in clients %}<option value="{{ c.id }}" {{ 'selected' if c.id|string == f.client_id }}>{{ c.nom }}</option>{% endfor %}</select></div>
+  <div class="col-md-2"><label class="form-label small" for="date_debut">Du</label><input type="date" class="form-control" id="date_debut" name="date_debut" value="{{ f.date_debut }}"></div>
+  <div class="col-md-2"><label class="form-label small" for="date_fin">Au</label><input type="date" class="form-control" id="date_fin" name="date_fin" value="{{ f.date_fin }}"></div>
+  <div class="col-12 d-flex gap-2"><button class="btn btn-outline-secondary btn-sm">Filtrer</button><a href="/interventions" class="btn btn-link btn-sm">Réinitialiser</a></div></div></form>
+<div class="card"><div class="table-responsive">
+{% if items %}
+<table class="table table-hover align-middle mb-0" data-table>
+  <thead><tr><th class="sortable">N°</th><th class="sortable">Date</th><th>Horaire</th><th class="sortable">Client</th><th class="sortable">Type</th><th class="sortable">Technicien</th><th class="sortable">Statut</th><th></th></tr></thead>
+  <tbody>{% for i in items %}<tr>
+    <td class="fw-semibold">{{ i.numero }}</td><td data-sort="{{ i.date.isoformat() }}">{{ i.date|datefr }}</td>
+    <td class="text-nowrap">{{ i.heure_debut }}–{{ i.heure_fin }}</td><td>{{ i.client.nom }}</td><td>{{ i.type }}</td><td>{{ i.technicien }}</td>
+    <td><span class="badge" style="background:{{ STATUT_COULEURS[i.statut] }}">{{ i.statut }}</span></td>
+    <td class="text-end text-nowrap">
+      {% if i.facture %}<a class="btn btn-sm btn-outline-success" href="/factures/{{ i.facture.id }}" title="Voir la facture"><i class="bi bi-receipt"></i></a>
+      {% else %}<form class="d-inline" method="post" action="/interventions/{{ i.id }}/facturer"><button class="btn btn-sm btn-outline-success" title="Facturer"><i class="bi bi-receipt"></i></button></form>{% endif %}
+      <a class="btn btn-sm btn-outline-secondary" href="/interventions/{{ i.id }}/modifier" title="Modifier"><i class="bi bi-pencil"></i></a>
+      <form class="d-inline" method="post" action="/interventions/{{ i.id }}/supprimer" data-confirm="Supprimer l'intervention {{ i.numero }} ?">
+        <button class="btn btn-sm btn-outline-danger" title="Supprimer"><i class="bi bi-trash"></i></button></form></td></tr>{% endfor %}</tbody></table>
+{% else %}<div class="empty"><i class="bi bi-tools"></i><h5 class="mt-2">Aucune intervention</h5>
+  <a href="/interventions/nouveau" class="btn btn-brand mt-2">Planifier une intervention</a></div>{% endif %}
+</div></div>{% endblock %}

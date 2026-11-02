@@ -1,0 +1,72 @@
+{% extends "base.html" %}{% block title %}Planning{% endblock %}
+{% block head %}<style>
+  .cal { border-collapse: separate; border-spacing: 0; width: 100%; table-layout: fixed; background: var(--bs-body-bg); }
+  .cal th, .cal td { border: 1px solid var(--bs-border-color); vertical-align: top; padding: 2px; }
+  .cal th { text-align: center; background: var(--bs-secondary-bg); font-size: .85rem; padding: .4rem; }
+  .cal .hour { width: 56px; text-align: right; font-size: .75rem; color: var(--bs-secondary-color); padding-right: 6px; }
+  .cal td.slot { height: 52px; cursor: pointer; }
+  .cal td.slot:hover, .cal td.drop { background: color-mix(in srgb, var(--brand) 12%, transparent); }
+  .cal td.today, .cal th.today { box-shadow: inset 0 0 0 2px var(--brand); }
+  .cal td.daycell { height: 110px; cursor: pointer; }
+  .cal td.other { opacity: .5; }
+  .ev { display: block; color: #fff !important; font-size: .75rem; border-radius: .35rem; padding: 2px 6px; margin-bottom: 2px;
+        text-decoration: none; cursor: grab; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .dayno { font-size: .75rem; color: var(--bs-secondary-color); }
+</style>{% endblock %}
+{% block content %}
+<div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+  <h1 class="h3 mb-0">Planning</h1>
+  <div class="d-flex flex-wrap gap-2">
+    <div class="btn-group"><a class="btn btn-outline-secondary {{ 'active' if vue == 'semaine' }}" href="/planning?vue=semaine&jour={{ ref.isoformat() }}">Semaine</a>
+      <a class="btn btn-outline-secondary {{ 'active' if vue == 'mois' }}" href="/planning?vue=mois&jour={{ ref.isoformat() }}">Mois</a></div>
+    <div class="btn-group"><a class="btn btn-outline-secondary" aria-label="Précédent" href="/planning?vue={{ vue }}&jour={{ prev.isoformat() }}"><i class="bi bi-chevron-left"></i></a>
+      <a class="btn btn-outline-secondary" href="/planning?vue={{ vue }}">Aujourd'hui</a>
+      <a class="btn btn-outline-secondary" aria-label="Suivant" href="/planning?vue={{ vue }}&jour={{ nxt.isoformat() }}"><i class="bi bi-chevron-right"></i></a></div>
+    <a class="btn btn-brand" href="/interventions/nouveau"><i class="bi bi-plus-circle"></i> Nouvelle intervention</a></div></div>
+<h2 class="h6 text-secondary mb-3">{{ titre }}</h2>
+<div class="d-flex flex-wrap gap-3 small mb-2">{% for s, c in STATUT_COULEURS.items() %}<span><span class="badge" style="background:{{ c }}">&nbsp;</span> {{ s }}</span>{% endfor %}</div>
+<div class="table-responsive">
+{% if vue == 'semaine' %}
+<table class="cal" id="cal" data-vue="semaine">
+  <thead><tr><th class="hour"></th>{% for d in days %}<th class="{{ 'today' if d == today() }}">{{ JOURS[d.weekday()][:3]|capitalize }} {{ d.strftime('%d/%m') }}</th>{% endfor %}</tr></thead>
+  <tbody>{% for h in heures %}<tr><td class="hour">{{ '%02d:00'|format(h) }}</td>
+    {% for d in days %}<td class="slot {{ 'today' if d == today() }}" data-date="{{ d.isoformat() }}" data-hour="{{ '%02d:00'|format(h) }}">
+      {% for i in by_day.get(d, []) if i.heure_debut[:2]|int == h %}
+      <a class="ev" draggable="true" data-id="{{ i.id }}" style="background:{{ STATUT_COULEURS[i.statut] }}" href="/interventions/{{ i.id }}/modifier"
+         title="{{ i.numero }} · {{ i.client.nom }} · {{ i.heure_debut }}-{{ i.heure_fin }}">{{ i.heure_debut }} {{ i.client.nom }}</a>{% endfor %}</td>{% endfor %}</tr>{% endfor %}
+    <tr><td class="hour">Autres</td>{% for d in days %}<td class="slot" data-date="{{ d.isoformat() }}" data-hour="">
+      {% for i in by_day.get(d, []) if i.heure_debut[:2]|int < heures[0] or i.heure_debut[:2]|int > heures[-1] %}
+      <a class="ev" draggable="true" data-id="{{ i.id }}" style="background:{{ STATUT_COULEURS[i.statut] }}" href="/interventions/{{ i.id }}/modifier">{{ i.heure_debut }} {{ i.client.nom }}</a>{% endfor %}</td>{% endfor %}</tr>
+  </tbody></table>
+{% else %}
+<table class="cal" id="cal" data-vue="mois">
+  <thead><tr>{% for j in JOURS %}<th>{{ j[:3]|capitalize }}</th>{% endfor %}</tr></thead>
+  <tbody>{% for w in range(days|length // 7) %}<tr>{% for d in days[w*7:(w+1)*7] %}
+    <td class="daycell slot {{ 'today' if d == today() }} {{ 'other' if d.month != ref.month }}" data-date="{{ d.isoformat() }}" data-hour="">
+      <div class="dayno">{{ d.day }}</div>
+      {% for i in by_day.get(d, []) %}<a class="ev" draggable="true" data-id="{{ i.id }}" style="background:{{ STATUT_COULEURS[i.statut] }}" href="/interventions/{{ i.id }}/modifier"
+         title="{{ i.numero }} · {{ i.client.nom }}">{{ i.heure_debut }} {{ i.client.nom }}</a>{% endfor %}</td>{% endfor %}</tr>{% endfor %}</tbody></table>
+{% endif %}
+</div>
+{% endblock %}
+{% block scripts %}
+<script>
+let dragId = null;
+document.querySelectorAll('.ev').forEach(e => {
+  e.addEventListener('dragstart', ev => { dragId = e.dataset.id; ev.dataTransfer.setData('text/plain', dragId); ev.dataTransfer.effectAllowed = 'move'; });
+  e.addEventListener('click', ev => ev.stopPropagation());
+});
+document.querySelectorAll('td.slot').forEach(td => {
+  td.addEventListener('dragover', ev => { ev.preventDefault(); td.classList.add('drop'); });
+  td.addEventListener('dragleave', () => td.classList.remove('drop'));
+  td.addEventListener('drop', async ev => {
+    ev.preventDefault(); td.classList.remove('drop');
+    const id = dragId || ev.dataTransfer.getData('text/plain'); if (!id) return;
+    const r = await fetch(`/api/interventions/${id}/deplacer`, {method: 'POST', headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({date: td.dataset.date, heure_debut: td.dataset.hour || null})});
+    if (r.ok) location.reload(); else { const j = await r.json(); alert(j.erreur || 'Déplacement impossible.'); }
+  });
+  td.addEventListener('click', () => { const h = td.dataset.hour ? `&heure=${td.dataset.hour}` : '';
+    location.href = `/interventions/nouveau?date=${td.dataset.date}${h}`; });
+});
+</script>{% endblock %}
