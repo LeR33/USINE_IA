@@ -3,7 +3,7 @@
 {% set v = form if form else p %}
 {% macro val(k) %}{{ (form[k] if form is mapping and k in form else p[k]) if form else p[k] }}{% endmacro %}
 <h1 class="h3 mb-4">Paramètres de la société</h1>
-<form method="post" enctype="multipart/form-data" novalidate>
+<form method="post" enctype="multipart/form-data" novalidate><input type="hidden" name="csrf_token" value="{{ csrf_token }}">
 <div class="row g-3">
   <div class="col-lg-8"><div class="card"><div class="card-body row g-3">
     <div class="col-md-6"><label class="form-label" for="nom_societe">Nom de la société *</label>

@@ -17,7 +17,7 @@
     <td class="text-end" data-sort="{{ a.prix_ht }}">{{ a.prix_ht|eur }}</td><td>{{ '%g'|format(a.tva) }} %</td><td>{{ a.unite }}</td>
     <td>{% if a.actif %}<span class="badge text-bg-success">Oui</span>{% else %}<span class="badge text-bg-secondary">Non</span>{% endif %}</td>
     <td class="text-end text-nowrap"><a class="btn btn-sm btn-outline-secondary" href="/articles/{{ a.id }}/modifier"><i class="bi bi-pencil"></i></a>
-      <form class="d-inline" method="post" action="/articles/{{ a.id }}/supprimer" data-confirm="Supprimer l'article « {{ a.designation }} » ?">
+      <form class="d-inline" method="post" action="/articles/{{ a.id }}/supprimer" data-confirm="Supprimer l'article « {{ a.designation }} » ?"><input type="hidden" name="csrf_token" value="{{ csrf_token }}">
         <button class="btn btn-sm btn-outline-danger"><i class="bi bi-trash"></i></button></form></td></tr>{% endfor %}</tbody></table>
 {% else %}<div class="empty"><i class="bi bi-box-seam"></i><h5 class="mt-2">{{ 'Aucun résultat' if (q or categorie) else 'Le catalogue est vide' }}</h5>
   <a href="/articles/nouveau" class="btn btn-brand mt-2">Ajouter un article</a></div>{% endif %}

@@ -2,7 +2,7 @@
 {% block content %}
 {% macro val(k, d='') %}{{ form[k] if form and k in form else (a[k] if a else d) }}{% endmacro %}
 <h1 class="h3 mb-4">{{ "Modifier l'article" if a else 'Nouvel article' }}</h1>
-<form method="post" novalidate><div class="card"><div class="card-body row g-3">
+<form method="post" novalidate><input type="hidden" name="csrf_token" value="{{ csrf_token }}"><div class="card"><div class="card-body row g-3">
   <div class="col-md-3"><label class="form-label" for="reference">Référence</label><input class="form-control" id="reference" name="reference" value="{{ val('reference')|trim }}"></div>
   <div class="col-md-9"><label class="form-label" for="designation">Désignation *</label><input class="form-control" id="designation" name="designation" required value="{{ val('designation')|trim }}"></div>
   <div class="col-md-3"><label class="form-label" for="prix_ht">Prix HT (€) *</label><input class="form-control" id="prix_ht" name="prix_ht" inputmode="decimal" value="{{ val('prix_ht', '0')|trim }}"></div>

@@ -4,10 +4,10 @@
   <h1 class="h3 mb-0">Facture {{ f.numero }} <span class="badge text-bg-{{ {'brouillon':'secondary','envoyée':'info','payée':'success','en retard':'danger'}[s] }}">{{ s }}</span></h1>
   <div class="d-flex flex-wrap gap-2">
     <a class="btn btn-outline-secondary" href="/factures/{{ f.id }}/pdf" target="_blank"><i class="bi bi-file-earmark-pdf"></i> PDF</a>
-    {% if f.statut == 'brouillon' %}<form method="post" action="/factures/{{ f.id }}/statut"><input type="hidden" name="statut" value="envoyée"><button class="btn btn-outline-primary"><i class="bi bi-send"></i> Marquer envoyée</button></form>{% endif %}
-    {% if f.statut != 'payée' %}<form method="post" action="/factures/{{ f.id }}/payer"><button class="btn btn-success"><i class="bi bi-check2-circle"></i> Marquer payée</button></form>
-    {% else %}<form method="post" action="/factures/{{ f.id }}/statut"><input type="hidden" name="statut" value="envoyée"><button class="btn btn-outline-secondary">Annuler le paiement</button></form>{% endif %}
-    <form method="post" action="/factures/{{ f.id }}/supprimer" data-confirm="Supprimer la facture {{ f.numero }} ?"><button class="btn btn-outline-danger"><i class="bi bi-trash"></i></button></form></div></div>
+    {% if f.statut == 'brouillon' %}<form method="post" action="/factures/{{ f.id }}/statut"><input type="hidden" name="csrf_token" value="{{ csrf_token }}"><input type="hidden" name="statut" value="envoyée"><button class="btn btn-outline-primary"><i class="bi bi-send"></i> Marquer envoyée</button></form>{% endif %}
+    {% if f.statut != 'payée' %}<form method="post" action="/factures/{{ f.id }}/payer"><input type="hidden" name="csrf_token" value="{{ csrf_token }}"><button class="btn btn-success"><i class="bi bi-check2-circle"></i> Marquer payée</button></form>
+    {% else %}<form method="post" action="/factures/{{ f.id }}/statut"><input type="hidden" name="csrf_token" value="{{ csrf_token }}"><input type="hidden" name="statut" value="envoyée"><button class="btn btn-outline-secondary">Annuler le paiement</button></form>{% endif %}
+    <form method="post" action="/factures/{{ f.id }}/supprimer" data-confirm="Supprimer la facture {{ f.numero }} ?"><input type="hidden" name="csrf_token" value="{{ csrf_token }}"><button class="btn btn-outline-danger"><i class="bi bi-trash"></i></button></form></div></div>
 <div class="row g-3"><div class="col-lg-8"><div class="card"><div class="table-responsive"><table class="table mb-0">
   <thead><tr><th>Désignation</th><th class="text-end">Qté</th><th class="text-end">PU HT</th><th class="text-end">TVA</th><th class="text-end">Total HT</th></tr></thead>
   <tbody>{% for l in f.lignes %}<tr><td>{{ l.designation }}</td><td class="text-end">{{ '%g'|format(l.quantite) }}</td><td class="text-end">{{ l.prix_ht|eur }}</td><td class="text-end">{{ '%g'|format(l.tva) }} %</td><td class="text-end">{{ l.total_ht|eur }}</td></tr>{% endfor %}</tbody>

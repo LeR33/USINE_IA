@@ -156,3 +156,13 @@ class LigneFacture(Base):
     @property
     def total_ht(self) -> float:
         return round(self.quantite * self.prix_ht, 2)
+
+
+class Utilisateur(Base):
+    """Compte de connexion (un seul administrateur pour l'instant)."""
+    __tablename__ = "utilisateurs"
+
+    id = Column(Integer, primary_key=True)
+    email = Column(String, unique=True, nullable=False, index=True)
+    mot_de_passe_hash = Column(String, nullable=False)
+    cree_le = Column(DateTime, default=datetime.utcnow, nullable=False)

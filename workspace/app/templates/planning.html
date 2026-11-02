@@ -62,7 +62,7 @@ document.querySelectorAll('td.slot').forEach(td => {
   td.addEventListener('drop', async ev => {
     ev.preventDefault(); td.classList.remove('drop');
     const id = dragId || ev.dataTransfer.getData('text/plain'); if (!id) return;
-    const r = await fetch(`/api/interventions/${id}/deplacer`, {method: 'POST', headers: {'Content-Type': 'application/json'},
+    const r = await fetch(`/api/interventions/${id}/deplacer`, {method: 'POST', headers: {'Content-Type': 'application/json', 'X-CSRF-Token': '{{ csrf_token }}'},
       body: JSON.stringify({date: td.dataset.date, heure_debut: td.dataset.hour || null})});
     if (r.ok) location.reload(); else { const j = await r.json(); alert(j.erreur || 'Déplacement impossible.'); }
   });

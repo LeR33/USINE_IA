@@ -6,7 +6,7 @@
 {% if interventions %}
 <table class="table table-hover align-middle mb-0"><thead><tr><th>N°</th><th>Date</th><th>Client</th><th>Type</th><th></th></tr></thead>
 <tbody>{% for i in interventions %}<tr><td class="fw-semibold">{{ i.numero }}</td><td>{{ i.date|datefr }}</td><td>{{ i.client.nom }}</td><td>{{ i.type }}</td>
-  <td class="text-end">{% if i.lignes %}<form method="post" action="/interventions/{{ i.id }}/facturer"><button class="btn btn-sm btn-brand">Facturer</button></form>
+  <td class="text-end">{% if i.lignes %}<form method="post" action="/interventions/{{ i.id }}/facturer"><input type="hidden" name="csrf_token" value="{{ csrf_token }}"><button class="btn btn-sm btn-brand">Facturer</button></form>
   {% else %}<a class="btn btn-sm btn-outline-secondary" href="/interventions/{{ i.id }}/modifier">Ajouter des lignes</a>{% endif %}</td></tr>{% endfor %}</tbody></table>
 {% else %}<div class="empty"><i class="bi bi-check2-circle"></i><h5 class="mt-2">Toutes les interventions sont déjà facturées</h5>
   <a href="/interventions/nouveau" class="btn btn-brand mt-2">Créer une intervention</a></div>{% endif %}

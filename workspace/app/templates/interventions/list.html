@@ -22,9 +22,9 @@
     <td><span class="badge" style="background:{{ STATUT_COULEURS[i.statut] }}">{{ i.statut }}</span></td>
     <td class="text-end text-nowrap">
       {% if i.facture %}<a class="btn btn-sm btn-outline-success" href="/factures/{{ i.facture.id }}" title="Voir la facture"><i class="bi bi-receipt"></i></a>
-      {% else %}<form class="d-inline" method="post" action="/interventions/{{ i.id }}/facturer"><button class="btn btn-sm btn-outline-success" title="Facturer"><i class="bi bi-receipt"></i></button></form>{% endif %}
+      {% else %}<form class="d-inline" method="post" action="/interventions/{{ i.id }}/facturer"><input type="hidden" name="csrf_token" value="{{ csrf_token }}"><button class="btn btn-sm btn-outline-success" title="Facturer"><i class="bi bi-receipt"></i></button></form>{% endif %}
       <a class="btn btn-sm btn-outline-secondary" href="/interventions/{{ i.id }}/modifier" title="Modifier"><i class="bi bi-pencil"></i></a>
-      <form class="d-inline" method="post" action="/interventions/{{ i.id }}/supprimer" data-confirm="Supprimer l'intervention {{ i.numero }} ?">
+      <form class="d-inline" method="post" action="/interventions/{{ i.id }}/supprimer" data-confirm="Supprimer l'intervention {{ i.numero }} ?"><input type="hidden" name="csrf_token" value="{{ csrf_token }}">
         <button class="btn btn-sm btn-outline-danger" title="Supprimer"><i class="bi bi-trash"></i></button></form></td></tr>{% endfor %}</tbody></table>
 {% else %}<div class="empty"><i class="bi bi-tools"></i><h5 class="mt-2">Aucune intervention</h5>
   <a href="/interventions/nouveau" class="btn btn-brand mt-2">Planifier une intervention</a></div>{% endif %}

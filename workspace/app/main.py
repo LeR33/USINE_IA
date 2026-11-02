@@ -8,14 +8,14 @@ from pathlib import Path
 from typing import Optional
 from urllib.parse import quote
 
-from fastapi import Depends, FastAPI, File, Request, UploadFile
+from fastapi import Depends, FastAPI, File, HTTPException, Request, UploadFile
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse, Response
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
 from starlette.middleware.sessions import SessionMiddleware
 
-from app import models, services
+from app import models, security, services
 from app.database import get_db, init_db
 from app.services import ValidationError
 from app.utils.pdf_gen import generate_invoice_pdf
@@ -33,10 +33,71 @@ async def lifespan(app: FastAPI):
     yield
 
 
-app = FastAPI(title="FroidPro", lifespan=lifespan)
+async def csrf_protect(request: Request):
+    """Vérifie le jeton CSRF sur toute requête modifiante (champ de formulaire ou en-tête X-CSRF-Token)."""
+    if request.method not in ("POST", "PUT", "PATCH", "DELETE") or security.auth_disabled():
+        return
+    if request.url.path in ("/connexion", "/installation") and not request.session.get("user_id"):
+        pass  # ces formulaires ont aussi leur jeton, vérifié ci-dessous
+    token = request.headers.get("x-csrf-token")
+    if token is None:
+        try:
+            form = await request.form()
+            token = form.get("csrf_token")
+        except Exception:  # noqa: BLE001
+            token = None
+    if not security.csrf_ok(request.session.get("csrf"), token):
+        raise HTTPException(status_code=403, detail="Session expirée ou requête non autorisée (CSRF).")
+
+
+app = FastAPI(title="FroidPro", lifespan=lifespan, dependencies=[Depends(csrf_protect)])
 import os  # noqa: E402
-app.add_middleware(SessionMiddleware, secret_key=os.getenv("FROIDPRO_SECRET", "dev-change-me-" + "froidpro"),
-                   same_site="lax")
+
+
+def _secret() -> str:
+    """Clé de session : FROIDPRO_SECRET, sinon générée et conservée dans data/ (jamais une valeur publique)."""
+    env = os.getenv("FROIDPRO_SECRET")
+    if env:
+        return env
+    from app.database import DB_PATH
+    f = DB_PATH.parent / ".secret_key"
+    if not f.exists():
+        import secrets as _s
+        f.write_text(_s.token_hex(32))
+        try:
+            f.chmod(0o600)
+        except OSError:
+            pass
+    return f.read_text().strip()
+
+
+
+PUBLIC_PREFIXES = ("/static/", "/connexion", "/installation")
+
+
+@app.middleware("http")
+async def auth_guard(request: Request, call_next):
+    """Toutes les pages exigent une session ; sans compte créé, on force /installation."""
+    path = request.url.path
+    if security.auth_disabled() or path.startswith(PUBLIC_PREFIXES):
+        return await call_next(request)
+    from app.database import SessionLocal
+    db = SessionLocal()
+    try:
+        has_user = db.query(models.Utilisateur).first() is not None
+    finally:
+        db.close()
+    if not has_user:
+        return RedirectResponse("/installation", status_code=303)
+    if not request.session.get("user_id"):
+        if path.startswith("/api/"):
+            return JSONResponse({"ok": False, "erreur": "Authentification requise."}, status_code=401)
+        return RedirectResponse("/connexion", status_code=303)
+    return await call_next(request)
+
+
+app.add_middleware(SessionMiddleware, secret_key=_secret(), same_site="lax", https_only=False,
+                   max_age=60 * 60 * 12)
 app.mount("/static", StaticFiles(directory=str(BASE / "static")), name="static")
 templates = Jinja2Templates(directory=str(BASE / "templates"))
 
@@ -63,7 +124,11 @@ templates.env.globals.update(STATUTS_INTERVENTION=models.STATUTS_INTERVENTION, S
 
 def render(request: Request, name: str, db: Session, status_code: int = 200, **ctx):
     flashes = request.session.pop("flashes", [])
-    ctx.update(request=request, p=services.get_parametres(db), flashes=flashes, path=request.url.path)
+    if "csrf" not in request.session:
+        request.session["csrf"] = security.new_csrf_token()
+    ctx.update(request=request, p=services.get_parametres(db), flashes=flashes, path=request.url.path,
+               csrf_token=request.session["csrf"], user_email=request.session.get("user_email"),
+               auth_on=not security.auth_disabled())
     return templates.TemplateResponse(request=request, name=name, context=ctx, status_code=status_code)
 
 
@@ -90,6 +155,97 @@ async def form_dict(request: Request) -> dict:
 def _articles_json(db):
     return [{"id": a.id, "designation": a.designation, "prix_ht": a.prix_ht, "tva": a.tva, "reference": a.reference,
              "unite": a.unite} for a in services.list_articles(db, actifs_only=True)]
+
+
+# ======================= Authentification =======================
+def _ip(request: Request) -> str:
+    return request.client.host if request.client else "inconnu"
+
+
+@app.get("/installation", response_class=HTMLResponse)
+def setup_form(request: Request, db: Session = Depends(get_db)):
+    if db.query(models.Utilisateur).first():
+        return redirect("/connexion")
+    return render(request, "auth/installation.html", db, errors=[], form={})
+
+
+@app.post("/installation")
+async def setup_save(request: Request, db: Session = Depends(get_db)):
+    if db.query(models.Utilisateur).first():
+        return redirect("/connexion")
+    data = await form_dict(request)
+    errors = []
+    email = (data.get("email") or "").strip().lower()
+    if not re.fullmatch(r"[^@\s]+@[^@\s]+\.[^@\s]+", email):
+        errors.append("L'adresse e-mail n'est pas valide.")
+    errors += security.password_errors(data.get("mot_de_passe", ""), data.get("confirmation", ""))
+    if errors:
+        return render(request, "auth/installation.html", db, status_code=422, errors=errors, form={"email": email})
+    u = models.Utilisateur(email=email, mot_de_passe_hash=security.hash_password(data["mot_de_passe"]))
+    db.add(u)
+    db.commit()
+    request.session.clear()
+    request.session.update(user_id=u.id, user_email=u.email, csrf=security.new_csrf_token())
+    flash(request, "Compte administrateur créé. Bienvenue !")
+    return redirect("/admin/parametres")
+
+
+@app.get("/connexion", response_class=HTMLResponse)
+def login_form(request: Request, db: Session = Depends(get_db)):
+    if not db.query(models.Utilisateur).first():
+        return redirect("/installation")
+    if request.session.get("user_id"):
+        return redirect("/")
+    return render(request, "auth/connexion.html", db, errors=[], form={})
+
+
+@app.post("/connexion")
+async def login(request: Request, db: Session = Depends(get_db)):
+    data = await form_dict(request)
+    key = _ip(request)
+    if security.too_many_attempts(key):
+        return render(request, "auth/connexion.html", db, status_code=429, form={},
+                      errors=["Trop de tentatives. Réessayez dans quelques minutes."])
+    email = (data.get("email") or "").strip().lower()
+    u = db.query(models.Utilisateur).filter_by(email=email).first()
+    # on vérifie toujours un hash pour garder un temps de réponse comparable
+    ok = security.verify_password(data.get("mot_de_passe", ""), u.mot_de_passe_hash if u else
+                                  "pbkdf2_sha256$1$00$00")
+    if not (u and ok):
+        security.record_failure(key)
+        return render(request, "auth/connexion.html", db, status_code=401, form={"email": email},
+                      errors=["E-mail ou mot de passe incorrect."])
+    security.reset_attempts(key)
+    request.session.clear()  # nouvelle session : évite la fixation de session
+    request.session.update(user_id=u.id, user_email=u.email, csrf=security.new_csrf_token())
+    return redirect("/")
+
+
+@app.post("/deconnexion")
+def logout(request: Request):
+    request.session.clear()
+    return redirect("/connexion")
+
+
+@app.get("/admin/mot-de-passe", response_class=HTMLResponse)
+def password_form(request: Request, db: Session = Depends(get_db)):
+    return render(request, "auth/mot_de_passe.html", db, errors=[])
+
+
+@app.post("/admin/mot-de-passe")
+async def password_change(request: Request, db: Session = Depends(get_db)):
+    data = await form_dict(request)
+    u = db.get(models.Utilisateur, request.session.get("user_id") or 0)
+    errors = []
+    if not u or not security.verify_password(data.get("actuel", ""), u.mot_de_passe_hash):
+        errors.append("Le mot de passe actuel est incorrect.")
+    errors += security.password_errors(data.get("nouveau", ""), data.get("confirmation", ""))
+    if errors:
+        return render(request, "auth/mot_de_passe.html", db, status_code=422, errors=errors)
+    u.mot_de_passe_hash = security.hash_password(data["nouveau"])
+    db.commit()
+    flash(request, "Mot de passe modifié.")
+    return redirect("/admin/parametres")
 
 
 # ======================= Tableau de bord =======================
