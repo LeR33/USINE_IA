@@ -43,7 +43,7 @@
   <ul class="nav flex-column px-2 gap-1">
     {% set menu = [('/', 'bi-speedometer2', 'Tableau de bord'), ('/planning', 'bi-calendar3', 'Planning'),
                     ('/interventions', 'bi-tools', 'Interventions'), ('/clients', 'bi-people', 'Clients'),
-                    ('/articles', 'bi-box-seam', 'Articles'), ('/factures', 'bi-receipt', 'Factures'),
+                    ('/articles', 'bi-box-seam', 'Articles'), ('/devis', 'bi-file-earmark-text', 'Devis'), ('/factures', 'bi-receipt', 'Factures'),
                     ('/admin/parametres', 'bi-gear', 'Paramètres')] %}
     {% for url, icon, label in menu %}
     <li><a class="nav-link {{ 'active' if (path == url if url == '/' else path.startswith(url)) }}" href="{{ url }}"><i class="bi {{ icon }}"></i>{{ label }}</a></li>

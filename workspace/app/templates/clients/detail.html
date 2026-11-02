@@ -4,9 +4,10 @@
   <h1 class="h3 mb-0">{{ c.nom }} {% if not c.actif %}<span class="badge text-bg-secondary">Inactif</span>{% endif %}</h1>
   <div class="d-flex gap-2">
     <a class="btn btn-brand" href="/interventions/nouveau?client_id={{ c.id }}"><i class="bi bi-plus-circle"></i> Intervention</a>
+    <a class="btn btn-outline-secondary" href="/devis/nouveau?client_id={{ c.id }}"><i class="bi bi-file-earmark-text"></i> Devis</a>
     <a class="btn btn-outline-secondary" href="/clients/{{ c.id }}/modifier"><i class="bi bi-pencil"></i> Modifier</a>
     <form method="post" action="/clients/{{ c.id }}/supprimer"
-      data-confirm="{{ 'Attention : ce client a ' ~ interventions|length ~ ' intervention(s) et ' ~ factures|length ~ ' facture(s) liées. Tout sera supprimé définitivement. Continuer ?' if interventions else 'Supprimer ce client ?' }}"><input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+      data-confirm="{{ 'Attention : ce client a ' ~ interventions|length ~ ' intervention(s), ' ~ devis|length ~ ' devis et ' ~ factures|length ~ ' facture(s) liés. Tout sera supprimé définitivement. Continuer ?' if (interventions or devis) else 'Supprimer ce client ?' }}"><input type="hidden" name="csrf_token" value="{{ csrf_token }}">
       <input type="hidden" name="force" value="1"><button class="btn btn-outline-danger"><i class="bi bi-trash"></i> Supprimer</button></form></div></div>
 <div class="row g-3">
   <div class="col-lg-4"><div class="card"><div class="card-body">
@@ -20,6 +21,10 @@
       {% for i in interventions %}<a class="d-flex justify-content-between text-decoration-none text-reset py-2 border-bottom" href="/interventions/{{ i.id }}/modifier">
         <span><strong>{{ i.numero }}</strong> · {{ i.type }}</span><span>{{ i.date|datefr }} <span class="badge" style="background:{{ STATUT_COULEURS[i.statut] }}">{{ i.statut }}</span></span></a>
       {% else %}<div class="empty py-3"><i class="bi bi-tools"></i><div>Aucune intervention.</div></div>{% endfor %}</div></div>
+    <div class="card mb-3"><div class="card-body"><h2 class="h6">Historique des devis</h2>
+      {% for d in devis %}<a class="d-flex justify-content-between text-decoration-none text-reset py-2 border-bottom" href="/devis/{{ d.id }}">
+        <span><strong>{{ d.numero }}</strong> · {{ d.date_emission|datefr }}</span><span>{{ d.total_ttc|eur }} <span class="badge text-bg-secondary">{{ d.statut_effectif }}</span></span></a>
+      {% else %}<div class="empty py-3"><i class="bi bi-file-earmark-text"></i><div>Aucun devis.</div></div>{% endfor %}</div></div>
     <div class="card"><div class="card-body"><h2 class="h6">Historique des factures</h2>
       {% for f in factures %}<a class="d-flex justify-content-between text-decoration-none text-reset py-2 border-bottom" href="/factures/{{ f.id }}">
         <span><strong>{{ f.numero }}</strong> · {{ f.date_emission|datefr }}</span><span>{{ f.total_ttc|eur }} <span class="badge text-bg-secondary">{{ f.statut_effectif }}</span></span></a>

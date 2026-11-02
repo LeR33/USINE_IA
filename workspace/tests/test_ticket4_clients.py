@@ -44,7 +44,7 @@ def test_suppression_avec_interventions_avertit(db):
     make_itv(db, c.id)
     with pytest.raises(services.ValidationError) as e:
         services.delete_client(db, c.id)
-    assert "1 intervention(s) liée(s)" in e.value.errors[0]
+    assert "1 intervention(s) ou devis liés" in e.value.errors[0]
     assert db.query(models.Client).count() == 1
 
 
@@ -61,7 +61,7 @@ def test_avertissement_dans_la_page(client, db):
     c = make_client(db)
     make_itv(db, c.id)
     html = client.get(f"/clients/{c.id}").text
-    assert "intervention(s)" in html and "liées" in html
+    assert "intervention(s)" in html and "facture(s) liés" in html
 
 
 def test_historique_interventions_et_factures(client, db):

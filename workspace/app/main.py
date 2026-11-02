@@ -18,7 +18,7 @@ from starlette.middleware.sessions import SessionMiddleware
 from app import models, security, services
 from app.database import get_db, init_db
 from app.services import ValidationError
-from app.utils.pdf_gen import generate_invoice_pdf
+from app.utils.pdf_gen import generate_devis_pdf, generate_invoice_pdf
 
 BASE = Path(__file__).resolve().parent
 UPLOADS = BASE / "static" / "uploads"
@@ -313,7 +313,8 @@ def client_detail(request: Request, cid: int, db: Session = Depends(get_db)):
         return render(request, "404.html", db, status_code=404)
     factures = services.list_factures(db, client_id=cid)
     itvs = services.list_interventions(db, client_id=cid)
-    return render(request, "clients/detail.html", db, c=c, factures=factures, interventions=itvs)
+    devis = services.list_devis(db, client_id=cid)
+    return render(request, "clients/detail.html", db, c=c, factures=factures, interventions=itvs, devis=devis)
 
 
 @app.get("/clients/{cid}/modifier", response_class=HTMLResponse)
@@ -529,6 +530,110 @@ async def api_move(iid: int, request: Request, db: Session = Depends(get_db)):
 
 
 # ======================= Factures =======================
+# ======================= Devis =======================
+def _devis_form(request: Request, db: Session, devis, form, errors, status_code: int = 200):
+    defaults = {"date_emission": date.today().isoformat(), "date_validite": (date.today() + timedelta(days=30)).isoformat()}
+    cid = request.query_params.get("client_id")
+    if cid and not devis:
+        defaults["client_id"] = cid
+    return render(request, "devis/form.html", db, status_code=status_code, devis=devis, form=form, errors=errors,
+                  defaults=defaults, clients=services.list_clients(db),
+                  catalogue=[{"id": a.id, "designation": a.designation, "prix_ht": a.prix_ht, "tva": a.tva}
+                             for a in services.list_articles(db, actifs_only=True)])
+
+
+@app.get("/devis", response_class=HTMLResponse)
+def devis_list(request: Request, statut: str = "", q: str = "", db: Session = Depends(get_db)):
+    return render(request, "devis/list.html", db, devis_list=services.list_devis(db, statut, None, q), statut=statut, q=q)
+
+
+@app.get("/devis/nouveau", response_class=HTMLResponse)
+def devis_new(request: Request, db: Session = Depends(get_db)):
+    return _devis_form(request, db, None, None, [])
+
+
+@app.post("/devis/nouveau")
+async def devis_create(request: Request, db: Session = Depends(get_db)):
+    data = await form_dict(request)
+    try:
+        d = services.create_devis(db, data)
+    except ValidationError as e:
+        return _devis_form(request, db, None, data, e.errors, 422)
+    flash(request, f"Devis {d.numero} créé.")
+    return redirect(f"/devis/{d.id}")
+
+
+@app.get("/devis/{did}", response_class=HTMLResponse)
+def devis_detail(request: Request, did: int, db: Session = Depends(get_db)):
+    d = services.get_devis(db, did)
+    if not d:
+        return render(request, "404.html", db, status_code=404)
+    return render(request, "devis/detail.html", db, d=d)
+
+
+@app.get("/devis/{did}/modifier", response_class=HTMLResponse)
+def devis_edit(request: Request, did: int, db: Session = Depends(get_db)):
+    d = services.get_devis(db, did)
+    if not d:
+        return render(request, "404.html", db, status_code=404)
+    return _devis_form(request, db, d, None, [])
+
+
+@app.post("/devis/{did}/modifier")
+async def devis_update(request: Request, did: int, db: Session = Depends(get_db)):
+    data = await form_dict(request)
+    try:
+        d = services.update_devis(db, did, data)
+    except ValidationError as e:
+        return _devis_form(request, db, services.get_devis(db, did), data, e.errors, 422)
+    if not d:
+        return render(request, "404.html", db, status_code=404)
+    flash(request, f"Devis {d.numero} mis à jour.")
+    return redirect(f"/devis/{did}")
+
+
+@app.post("/devis/{did}/statut")
+async def devis_statut(request: Request, did: int, db: Session = Depends(get_db)):
+    data = await form_dict(request)
+    try:
+        d = services.set_devis_statut(db, did, data.get("statut", ""))
+    except ValidationError as e:
+        flash(request, e.errors[0], "danger")
+        return redirect(f"/devis/{did}")
+    if not d:
+        return render(request, "404.html", db, status_code=404)
+    flash(request, f"Devis {d.numero} : statut « {d.statut} ».")
+    return redirect(f"/devis/{did}")
+
+
+@app.post("/devis/{did}/convertir")
+async def devis_convert(request: Request, did: int, db: Session = Depends(get_db)):
+    data = await form_dict(request)
+    try:
+        itv = services.convert_devis_to_intervention(db, did, data.get("date") or None)
+    except ValidationError as e:
+        flash(request, e.errors[0], "danger")
+        return redirect(f"/devis/{did}")
+    flash(request, f"Intervention {itv.numero} créée à partir du devis. Ajustez la date et l'horaire si besoin.")
+    return redirect(f"/interventions/{itv.id}/modifier")
+
+
+@app.post("/devis/{did}/supprimer")
+def devis_delete(request: Request, did: int, db: Session = Depends(get_db)):
+    ok = services.delete_devis(db, did)
+    flash(request, "Devis supprimé." if ok else "Devis introuvable.", "success" if ok else "danger")
+    return redirect("/devis")
+
+
+@app.get("/devis/{did}/pdf")
+def devis_pdf(did: int, db: Session = Depends(get_db)):
+    d = services.get_devis(db, did)
+    if not d:
+        return Response("Devis introuvable.", status_code=404)
+    return Response(generate_devis_pdf(d, services.get_parametres(db)), media_type="application/pdf",
+                    headers={"Content-Disposition": f'inline; filename="{quote(d.numero)}.pdf"'})
+
+
 @app.get("/factures", response_class=HTMLResponse)
 def factures_list(request: Request, statut: str = "", q: str = "", db: Session = Depends(get_db)):
     return render(request, "factures/list.html", db, factures=services.list_factures(db, statut, None, q),

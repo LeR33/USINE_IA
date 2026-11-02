@@ -12,7 +12,7 @@
 </div>
 <div class="row g-3 mb-4">
   {% for url, icon, label in [('/interventions/nouveau','bi-plus-circle','Nouvelle intervention'), ('/clients/nouveau','bi-person-plus','Nouveau client'),
-     ('/factures/nouvelle','bi-receipt','Nouvelle facture'), ('/planning','bi-calendar3','Planning'), ('/articles','bi-box-seam','Articles')] %}
+     ('/devis/nouveau','bi-file-earmark-text','Nouveau devis'), ('/factures/nouvelle','bi-receipt','Nouvelle facture'), ('/planning','bi-calendar3','Planning'), ('/articles','bi-box-seam','Articles')] %}
   <div class="col-6 col-md"><a href="{{ url }}" class="btn btn-brand w-100 shortcut"><i class="bi {{ icon }}"></i>{{ label }}</a></div>
   {% endfor %}
 </div>
