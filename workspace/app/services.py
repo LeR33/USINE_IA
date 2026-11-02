@@ -183,7 +183,9 @@ def update_client(db: Session, client_id: int, data: dict):
 
 
 def count_client_links(db: Session, client_id: int) -> int:
-    return db.query(models.Intervention).filter_by(client_id=client_id).count()
+    """Éléments liés au client (interventions + devis) qui seraient supprimés avec lui."""
+    return (db.query(models.Intervention).filter_by(client_id=client_id).count()
+            + db.query(models.Devis).filter_by(client_id=client_id).count())
 
 
 def delete_client(db: Session, client_id: int, force: bool = False) -> bool:
@@ -193,11 +195,13 @@ def delete_client(db: Session, client_id: int, force: bool = False) -> bool:
         return False
     n = count_client_links(db, client_id)
     if n and not force:
-        raise ValidationError([f"Ce client a {n} intervention(s) liée(s). Confirmez la suppression pour tout effacer."])
+        raise ValidationError([f"Ce client a {n} intervention(s) ou devis liés. Confirmez la suppression pour tout effacer."])
     for itv in list(c.interventions):
         delete_intervention(db, itv.id, commit=False)
     for f in db.query(models.Facture).filter_by(client_id=client_id).all():
         db.delete(f)
+    for d in db.query(models.Devis).filter_by(client_id=client_id).all():
+        db.delete(d)
     db.delete(c)
     db.commit()
     return True
@@ -493,6 +497,134 @@ def delete_facture(db: Session, facture_id: int) -> bool:
 
 
 # ---------- Tableau de bord ----------
+# ---------- Devis ----------
+STATUTS_DEVIS = ["brouillon", "envoyé", "accepté", "refusé"]
+VALIDITE_DEVIS_JOURS = 30
+
+
+def generate_devis_number(db: Session) -> str:
+    """DEV-AAAA-NNNN ; compteur dans la table `compteurs`."""
+    c = db.get(models.Compteur, "devis")
+    if c is None:
+        c = models.Compteur(nom="devis", valeur=1)
+        db.add(c)
+        db.flush()
+    while True:
+        numero = f"DEV-{date.today().year}-{c.valeur:04d}"
+        c.valeur += 1
+        if not db.query(models.Devis).filter_by(numero=numero).first():
+            return numero
+
+
+def _devis_data(db: Session, data: dict):
+    errors: list[str] = []
+    try:
+        client_id = int(str(data.get("client_id") or "").strip())
+        if not db.get(models.Client, client_id):
+            raise ValueError
+    except ValueError:
+        client_id = None
+        errors.append("Veuillez choisir un client valide.")
+    emission = _date(data.get("date_emission") or date.today().isoformat(), "La date d'émission", errors)
+    validite = _date(data.get("date_validite"), "La date de validité", errors, required=False)
+    if emission and not validite:
+        validite = emission + timedelta(days=VALIDITE_DEVIS_JOURS)
+    if emission and validite and validite < emission:
+        errors.append("La date de validité ne peut pas être antérieure à la date d'émission.")
+    lignes = _lignes_from_form(data, errors)
+    if not lignes:
+        errors.append("Ajoutez au moins une ligne au devis.")
+    return errors, {"client_id": client_id, "date_emission": emission, "date_validite": validite,
+                    "objet": _s(data.get("objet")), "notes": _s(data.get("notes"))}, lignes
+
+
+def create_devis(db: Session, data: dict) -> models.Devis:
+    errors, fields, lignes = _devis_data(db, data)
+    _raise(errors)
+    d = models.Devis(numero=generate_devis_number(db), statut="brouillon", **fields)
+    d.lignes = [models.LigneDevis(**l) for l in lignes]
+    db.add(d)
+    db.commit()
+    db.refresh(d)
+    return d
+
+
+def get_devis(db: Session, devis_id: int):
+    return db.get(models.Devis, devis_id)
+
+
+def update_devis(db: Session, devis_id: int, data: dict):
+    d = get_devis(db, devis_id)
+    if not d:
+        return None
+    if d.statut in ("accepté", "refusé") or d.intervention_id:
+        raise ValidationError(["Un devis accepté, refusé ou déjà converti ne peut plus être modifié."])
+    errors, fields, lignes = _devis_data(db, data)
+    _raise(errors)
+    for k, v in fields.items():
+        setattr(d, k, v)
+    d.lignes = [models.LigneDevis(**l) for l in lignes]
+    db.commit()
+    db.refresh(d)
+    return d
+
+
+def list_devis(db: Session, statut: str = "", client_id: Optional[int] = None, q: str = ""):
+    query = db.query(models.Devis).join(models.Client, models.Devis.client_id == models.Client.id)
+    if client_id:
+        query = query.filter(models.Devis.client_id == client_id)
+    if q:
+        like = f"%{q.strip()}%"
+        query = query.filter(or_(models.Devis.numero.ilike(like), models.Client.nom.ilike(like),
+                                 models.Devis.objet.ilike(like)))
+    res = query.order_by(models.Devis.date_emission.desc(), models.Devis.id.desc()).all()
+    if statut:
+        res = [d for d in res if d.statut_effectif == statut]
+    return res
+
+
+def set_devis_statut(db: Session, devis_id: int, statut: str):
+    d = get_devis(db, devis_id)
+    if not d:
+        return None
+    if statut not in STATUTS_DEVIS:
+        raise ValidationError([f"Le statut doit être l'un de : {', '.join(STATUTS_DEVIS)}."])
+    if d.intervention_id and statut != "accepté":
+        raise ValidationError(["Ce devis a déjà été converti en intervention : son statut ne peut plus changer."])
+    d.statut = statut
+    db.commit()
+    return d
+
+
+def convert_devis_to_intervention(db: Session, devis_id: int, jour: Optional[str] = None):
+    """Un devis accepté devient une intervention planifiée qui reprend ses lignes (idempotent)."""
+    d = get_devis(db, devis_id)
+    if not d:
+        raise ValidationError(["Devis introuvable."])
+    if d.intervention_id:
+        return d.intervention
+    if d.statut != "accepté":
+        raise ValidationError(["Seul un devis accepté peut être converti en intervention."])
+    itv = create_intervention(db, {
+        "client_id": d.client_id, "date": jour or date.today().isoformat(), "heure_debut": "09:00", "heure_fin": "11:00",
+        "type": "Installation", "statut": "planifiée", "description": f"Issue du devis {d.numero}. {d.objet}".strip(),
+        "ligne_designation": [l.designation for l in d.lignes], "ligne_quantite": [str(l.quantite) for l in d.lignes],
+        "ligne_prix": [str(l.prix_ht) for l in d.lignes], "ligne_tva": [str(l.tva) for l in d.lignes]})
+    d = get_devis(db, devis_id)
+    d.intervention_id = itv.id
+    db.commit()
+    return itv
+
+
+def delete_devis(db: Session, devis_id: int) -> bool:
+    d = get_devis(db, devis_id)
+    if not d:
+        return False
+    db.delete(d)
+    db.commit()
+    return True
+
+
 def _month_start(d: date, offset: int = 0) -> date:
     m = d.year * 12 + d.month - 1 + offset
     return date(m // 12, m % 12 + 1, 1)

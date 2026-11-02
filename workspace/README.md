@@ -47,14 +47,17 @@ Au **premier lancement**, la page `/installation` demande de créer le compte ad
    glisser-déposer pour déplacer (la durée est conservée).
 4. **Clients** : CRUD complet, recherche, notes, historique des interventions et factures, avertissement avant suppression.
 5. **Articles** : catalogue (référence, prix HT, TVA, unité, catégorie, actif), ajout rapide dans une intervention.
-6. **Facturation** : facture créée depuis une intervention, HT/TVA/TTC, statuts brouillon / envoyée / payée / en retard
+6. **Devis** (`/devis`) : création avec lignes et catalogue, numéro `DEV-AAAA-NNNN`, validité 30 jours par défaut,
+   statuts brouillon / envoyé / accepté / refusé (« expiré » calculé automatiquement), PDF avec « bon pour accord ».
+   Un devis accepté se convertit en intervention (lignes reprises), puis en facture : les montants restent identiques.
+7. **Facturation** : facture créée depuis une intervention, HT/TVA/TTC, statuts brouillon / envoyée / payée / en retard
    (calculé automatiquement après l'échéance), bouton « marquer payée », PDF avec logo et infos société.
-7. **Tableau de bord** : cartes, raccourcis, prochaines interventions, factures en retard, activité, CA encaissé sur 6 mois.
-8. **Design** : menu latéral, Bootstrap 5, tableaux triables/recherchables, responsive, mode sombre (bouton en haut à droite).
+8. **Tableau de bord** : cartes, raccourcis, prochaines interventions, factures en retard, activité, CA encaissé sur 6 mois.
+9. **Design** : menu latéral, Bootstrap 5, tableaux triables/recherchables, responsive, mode sombre (bouton en haut à droite).
 
 ## Tests
 
-Un fichier par ticket dans `tests/` (`test_ticket1_parametres.py` … `test_ticket9_qualite.py`). `pytest` les lance tous.
+Un fichier par fonctionnalité dans `tests/` (`test_ticket1_parametres.py` … `test_ticket11_devis.py`). `pytest` les lance tous.
 
 ## Structure
 
@@ -67,5 +70,4 @@ app/templates/     pages Jinja2         app/static/uploads/  logo envoyé
 ## Limites connues
 
 - Un seul compte administrateur (pas de rôles ni de multi-utilisateurs).
-- Pas de devis dédiés : seules les factures sont générées (le modèle de paramètres est prêt à les accueillir).
 - Une facture est liée à une seule intervention.

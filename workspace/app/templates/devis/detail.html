@@ -1,0 +1,27 @@
+{% extends "base.html" %}{% block title %}Devis {{ d.numero }}{% endblock %}
+{% block content %}{% set s = d.statut_effectif %}
+<div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+  <h1 class="h3 mb-0">Devis {{ d.numero }} <span class="badge text-bg-{{ {'brouillon':'secondary','envoyé':'info','accepté':'success','refusé':'danger','expiré':'warning'}[s] }}">{{ s }}</span></h1>
+  <div class="d-flex flex-wrap gap-2">
+    <a class="btn btn-outline-secondary" href="/devis/{{ d.id }}/pdf" target="_blank"><i class="bi bi-file-earmark-pdf"></i> PDF</a>
+    {% if not d.intervention_id and d.statut in ('brouillon', 'envoyé') %}<a class="btn btn-outline-secondary" href="/devis/{{ d.id }}/modifier"><i class="bi bi-pencil"></i> Modifier</a>{% endif %}
+    {% if d.statut == 'brouillon' %}<form method="post" action="/devis/{{ d.id }}/statut"><input type="hidden" name="csrf_token" value="{{ csrf_token }}"><input type="hidden" name="statut" value="envoyé"><button class="btn btn-outline-primary"><i class="bi bi-send"></i> Marquer envoyé</button></form>{% endif %}
+    {% if d.statut in ('brouillon', 'envoyé') %}
+    <form method="post" action="/devis/{{ d.id }}/statut"><input type="hidden" name="csrf_token" value="{{ csrf_token }}"><input type="hidden" name="statut" value="accepté"><button class="btn btn-success"><i class="bi bi-check2-circle"></i> Accepté</button></form>
+    <form method="post" action="/devis/{{ d.id }}/statut"><input type="hidden" name="csrf_token" value="{{ csrf_token }}"><input type="hidden" name="statut" value="refusé"><button class="btn btn-outline-danger"><i class="bi bi-x-circle"></i> Refusé</button></form>{% endif %}
+    {% if d.statut == 'accepté' and not d.intervention_id %}<form method="post" action="/devis/{{ d.id }}/convertir"><input type="hidden" name="csrf_token" value="{{ csrf_token }}"><button class="btn btn-brand"><i class="bi bi-tools"></i> Créer l'intervention</button></form>{% endif %}
+    <form method="post" action="/devis/{{ d.id }}/supprimer" data-confirm="Supprimer le devis {{ d.numero }} ?"><input type="hidden" name="csrf_token" value="{{ csrf_token }}"><button class="btn btn-outline-danger" aria-label="Supprimer"><i class="bi bi-trash"></i></button></form></div></div>
+<div class="row g-3"><div class="col-lg-8"><div class="card"><div class="table-responsive"><table class="table mb-0">
+  <thead><tr><th>Désignation</th><th class="text-end">Qté</th><th class="text-end">PU HT</th><th class="text-end">TVA</th><th class="text-end">Total HT</th></tr></thead>
+  <tbody>{% for l in d.lignes %}<tr><td>{{ l.designation }}</td><td class="text-end">{{ '%g'|format(l.quantite) }}</td><td class="text-end">{{ l.prix_ht|eur }}</td><td class="text-end">{{ '%g'|format(l.tva) }} %</td><td class="text-end">{{ l.total_ht|eur }}</td></tr>{% endfor %}</tbody>
+  <tfoot><tr><td colspan="4" class="text-end">Total HT</td><td class="text-end">{{ d.total_ht|eur }}</td></tr>
+  <tr><td colspan="4" class="text-end">TVA</td><td class="text-end">{{ d.total_tva|eur }}</td></tr>
+  <tr class="fw-bold"><td colspan="4" class="text-end">Total TTC</td><td class="text-end">{{ d.total_ttc|eur }}</td></tr></tfoot></table></div></div></div>
+  <div class="col-lg-4"><div class="card"><div class="card-body">
+    <p class="mb-1"><strong>Client :</strong> <a href="/clients/{{ d.client_id }}">{{ d.client.nom }}</a></p>
+    {% if d.objet %}<p class="mb-1"><strong>Objet :</strong> {{ d.objet }}</p>{% endif %}
+    <p class="mb-1"><strong>Émission :</strong> {{ d.date_emission|datefr }}</p>
+    <p class="mb-1"><strong>Valable jusqu'au :</strong> {{ d.date_validite|datefr }}</p>
+    {% if d.notes %}<p class="mb-1"><strong>Notes :</strong> {{ d.notes }}</p>{% endif %}
+    {% if d.intervention %}<p class="mb-0"><strong>Intervention :</strong> <a href="/interventions/{{ d.intervention_id }}/modifier">{{ d.intervention.numero }}</a></p>{% endif %}
+  </div></div></div></div>{% endblock %}

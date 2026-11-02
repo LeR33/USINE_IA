@@ -21,9 +21,19 @@ def _p(text, style):
 
 
 def generate_invoice_pdf(facture, parametres) -> bytes:
+    return _generate_pdf(facture, parametres, kind="facture")
+
+
+def generate_devis_pdf(devis, parametres) -> bytes:
+    return _generate_pdf(devis, parametres, kind="devis")
+
+
+def _generate_pdf(facture, parametres, kind: str = "facture") -> bytes:
+    """Gabarit commun facture / devis."""
+    is_devis = kind == "devis"
     buf = BytesIO()
     doc = SimpleDocTemplate(buf, pagesize=A4, leftMargin=18 * mm, rightMargin=18 * mm,
-                            topMargin=15 * mm, bottomMargin=15 * mm, title=f"Facture {facture.numero}")
+                            topMargin=15 * mm, bottomMargin=15 * mm, title=f"{'Devis' if is_devis else 'Facture'} {facture.numero}")
     ss = getSampleStyleSheet()
     try:
         main = colors.HexColor(parametres.couleur_principale or "#0d6efd")
@@ -58,21 +68,26 @@ def generate_invoice_pdf(facture, parametres) -> bytes:
                  parametres.email):
         if line:
             left.append(_p(line, small))
-    head = Table([[left, [Paragraph("FACTURE", title), _p(f"N° {facture.numero}", right)]]],
+    head = Table([[left, [Paragraph("DEVIS" if is_devis else "FACTURE", title), _p(f"N° {facture.numero}", right)]]],
                  colWidths=[100 * mm, 74 * mm])
     head.setStyle(TableStyle([("VALIGN", (0, 0), (-1, -1), "TOP"), ("ALIGN", (1, 0), (1, 0), "RIGHT")]))
     story += [head, Spacer(1, 8 * mm)]
 
     # Client + dates
     c = facture.client
-    cl = [Paragraph("<b>Facturé à</b>", normal), _p(c.nom, bold)]
+    cl = [Paragraph("<b>Destinataire</b>" if is_devis else "<b>Facturé à</b>", normal), _p(c.nom, bold)]
     for line in (c.adresse, c.telephone, c.email):
         if line:
             cl.append(_p(line, normal))
-    dates = [_p(f"Date d'émission : {facture.date_emission.strftime('%d/%m/%Y')}", right),
-             _p(f"Échéance : {facture.date_echeance.strftime('%d/%m/%Y')}", right)]
-    if facture.intervention:
-        dates.append(_p(f"Intervention : {facture.intervention.numero}", right))
+    dates = [_p(f"Date d'émission : {facture.date_emission.strftime('%d/%m/%Y')}", right)]
+    if is_devis:
+        dates.append(_p(f"Valable jusqu'au : {facture.date_validite.strftime('%d/%m/%Y')}", right))
+        if facture.objet:
+            dates.append(_p(f"Objet : {facture.objet}", right))
+    else:
+        dates.append(_p(f"Échéance : {facture.date_echeance.strftime('%d/%m/%Y')}", right))
+        if facture.intervention:
+            dates.append(_p(f"Intervention : {facture.intervention.numero}", right))
     info = Table([[cl, dates]], colWidths=[100 * mm, 74 * mm])
     info.setStyle(TableStyle([("VALIGN", (0, 0), (-1, -1), "TOP")]))
     story += [info, Spacer(1, 8 * mm)]
@@ -101,11 +116,15 @@ def generate_invoice_pdf(facture, parametres) -> bytes:
 
     # Paiement + mentions
     pay = []
-    if facture.statut == "payée" and facture.date_paiement:
+    if is_devis:
+        pay.append("Bon pour accord : date, signature et mention « lu et approuvé » du client.")
+        if facture.notes:
+            pay.append(f"Notes : {facture.notes}")
+    if not is_devis and facture.statut == "payée" and facture.date_paiement:
         pay.append(f"Facture acquittée le {facture.date_paiement.strftime('%d/%m/%Y')}.")
     if parametres.conditions_paiement:
         pay.append(f"Conditions de paiement : {parametres.conditions_paiement}")
-    if parametres.iban:
+    if parametres.iban and not is_devis:
         pay.append(f"IBAN : {parametres.iban}")
     for line in pay:
         story.append(_p(line, normal))

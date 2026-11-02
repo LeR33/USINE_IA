@@ -166,3 +166,65 @@ class Utilisateur(Base):
     email = Column(String, unique=True, nullable=False, index=True)
     mot_de_passe_hash = Column(String, nullable=False)
     cree_le = Column(DateTime, default=datetime.utcnow, nullable=False)
+
+
+class Devis(Base):
+    __tablename__ = "devis"
+
+    id = Column(Integer, primary_key=True, index=True)
+    numero = Column(String, unique=True, index=True, nullable=False)
+    client_id = Column(Integer, ForeignKey("clients.id"), nullable=False)
+    date_emission = Column(Date, nullable=False, default=date.today)
+    date_validite = Column(Date, nullable=False)
+    statut = Column(String, default="brouillon", nullable=False, index=True)
+    objet = Column(String, default="")
+    notes = Column(Text, default="")
+    intervention_id = Column(Integer, ForeignKey("interventions.id"), nullable=True)  # rempli à la conversion
+
+    client = relationship("Client")
+    intervention = relationship("Intervention")
+    lignes = relationship("LigneDevis", back_populates="devis", cascade="all, delete-orphan")
+
+    @property
+    def total_ht(self) -> float:
+        return round(sum(l.quantite * l.prix_ht for l in self.lignes), 2)
+
+    @property
+    def total_tva(self) -> float:
+        return round(sum(l.quantite * l.prix_ht * l.tva / 100.0 for l in self.lignes), 2)
+
+    @property
+    def total_ttc(self) -> float:
+        return round(self.total_ht + self.total_tva, 2)
+
+    @property
+    def statut_effectif(self) -> str:
+        """Un devis envoyé dont la validité est dépassée est 'expiré'."""
+        if self.statut == "envoyé" and self.date_validite < date.today():
+            return "expiré"
+        return self.statut
+
+
+class LigneDevis(Base):
+    __tablename__ = "lignes_devis"
+
+    id = Column(Integer, primary_key=True)
+    devis_id = Column(Integer, ForeignKey("devis.id"), nullable=False)
+    designation = Column(String, nullable=False)
+    quantite = Column(Float, nullable=False, default=1.0)
+    prix_ht = Column(Float, nullable=False, default=0.0)
+    tva = Column(Float, nullable=False, default=20.0)
+
+    devis = relationship("Devis", back_populates="lignes")
+
+    @property
+    def total_ht(self) -> float:
+        return round(self.quantite * self.prix_ht, 2)
+
+
+class Compteur(Base):
+    """Compteurs de numérotation additionnels (devis...). Table neuve : aucune migration sur l'existant."""
+    __tablename__ = "compteurs"
+
+    nom = Column(String, primary_key=True)
+    valeur = Column(Integer, nullable=False, default=1)
