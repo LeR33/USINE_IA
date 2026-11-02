@@ -2,7 +2,7 @@
 {% block content %}
 {% macro val(k, d='') %}{% if form and k in form %}{{ form[k] }}{% elif itv %}{{ itv[k] if itv[k] is not none else d }}{% else %}{{ defaults.get(k, d) }}{% endif %}{% endmacro %}
 <h1 class="h3 mb-4">{{ 'Modifier ' ~ itv.numero if itv else 'Nouvelle intervention' }}</h1>
-<form method="post" novalidate id="itvForm">
+<form method="post" novalidate id="itvForm"><input type="hidden" name="csrf_token" value="{{ csrf_token }}">
 <div class="card mb-3"><div class="card-body row g-3">
   <div class="col-md-6"><label class="form-label" for="client_id">Client *</label><select class="form-select" id="client_id" name="client_id" required>
     <option value="">Choisir…</option>{% for c in clients %}<option value="{{ c.id }}" {{ 'selected' if c.id|string == val('client_id')|trim }}>{{ c.nom }}</option>{% endfor %}</select></div>

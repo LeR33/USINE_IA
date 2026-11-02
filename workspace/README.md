@@ -19,10 +19,22 @@ Variables d'environnement (facultatives) :
 | Variable | Rôle |
 |---|---|
 | `FROIDPRO_DB` | chemin du fichier SQLite (défaut `data/froidpro.db`) |
-| `FROIDPRO_SECRET` | clé de signature des sessions (messages flash). **À définir en production.** |
+| `FROIDPRO_SECRET` | clé de signature des sessions. Si absente, une clé aléatoire est générée dans `data/.secret_key` (à conserver). |
+| `FROIDPRO_AUTH` | `off` désactive la connexion (usage strictement local, déconseillé). |
 
 > Bootstrap et Chart.js sont chargés depuis un CDN : une connexion Internet est nécessaire pour l'affichage.
-> L'application n'a **pas d'authentification** : ne l'exposez pas sur Internet sans reverse-proxy protégé (Basic Auth, VPN).
+
+## Connexion et sécurité
+
+Au **premier lancement**, la page `/installation` demande de créer le compte administrateur (e-mail + mot de passe d'au moins
+10 caractères avec une lettre et un chiffre). Ensuite toutes les pages exigent une connexion.
+
+- Mots de passe hachés (PBKDF2-SHA256, sel aléatoire), jamais stockés en clair.
+- Protection CSRF sur tous les formulaires et appels POST.
+- Blocage après 5 échecs de connexion en 5 minutes (par adresse IP).
+- Session de 12 h, renouvelée à chaque connexion. Mot de passe modifiable depuis le menu en haut à droite.
+- **Mot de passe oublié** : supprimez la ligne de la table `utilisateurs` (ou le fichier `data/froidpro.db` si vous n'avez pas de données), puis relancez : la page d'installation réapparaît.
+- En ligne publique, placez l'application derrière HTTPS (reverse-proxy) : sans HTTPS, les mots de passe circulent en clair.
 
 ## Fonctionnalités
 
@@ -54,6 +66,6 @@ app/templates/     pages Jinja2         app/static/uploads/  logo envoyé
 
 ## Limites connues
 
-- Pas d'authentification ni de multi-utilisateurs.
+- Un seul compte administrateur (pas de rôles ni de multi-utilisateurs).
 - Pas de devis dédiés : seules les factures sont générées (le modèle de paramètres est prêt à les accueillir).
 - Une facture est liée à une seule intervention.

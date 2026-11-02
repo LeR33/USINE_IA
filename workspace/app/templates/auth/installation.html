@@ -1,0 +1,14 @@
+{% extends "auth/_layout.html" %}{% block title %}Installation{% endblock %}
+{% block body %}
+<p class="text-secondary">Première utilisation : créez le compte administrateur. Il sera demandé à chaque connexion.</p>
+<form method="post" novalidate>
+  <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+  <div class="mb-3"><label class="form-label" for="email">E-mail</label>
+    <input class="form-control" type="email" id="email" name="email" autocomplete="username" required autofocus value="{{ form.get('email', '') }}"></div>
+  <div class="mb-3"><label class="form-label" for="mot_de_passe">Mot de passe</label>
+    <input class="form-control" type="password" id="mot_de_passe" name="mot_de_passe" autocomplete="new-password" required>
+    <div class="form-text">10 caractères minimum, avec au moins une lettre et un chiffre.</div></div>
+  <div class="mb-3"><label class="form-label" for="confirmation">Confirmer le mot de passe</label>
+    <input class="form-control" type="password" id="confirmation" name="confirmation" autocomplete="new-password" required></div>
+  <button class="btn btn-brand w-100" type="submit">Créer le compte</button>
+</form>{% endblock %}

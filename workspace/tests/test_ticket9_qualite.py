@@ -24,7 +24,7 @@ def test_readme_a_jour():
 
 def test_pas_de_secret_en_dur_obligatoire():
     main = (ROOT / "app" / "main.py").read_text(encoding="utf-8")
-    assert 'os.getenv("FROIDPRO_SECRET"' in main
+    assert 'os.getenv("FROIDPRO_SECRET")' in main
 
 
 @pytest.mark.parametrize("fn,args", [

@@ -1,0 +1,11 @@
+{% extends "base.html" %}{% block title %}Mot de passe{% endblock %}
+{% block content %}
+<h1 class="h3 mb-4">Changer le mot de passe</h1>
+<form method="post" class="card card-body" style="max-width:480px" novalidate>
+  <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+  <div class="mb-3"><label class="form-label" for="actuel">Mot de passe actuel</label><input class="form-control" type="password" id="actuel" name="actuel" autocomplete="current-password" required></div>
+  <div class="mb-3"><label class="form-label" for="nouveau">Nouveau mot de passe</label><input class="form-control" type="password" id="nouveau" name="nouveau" autocomplete="new-password" required>
+    <div class="form-text">10 caractères minimum, avec au moins une lettre et un chiffre.</div></div>
+  <div class="mb-3"><label class="form-label" for="confirmation">Confirmation</label><input class="form-control" type="password" id="confirmation" name="confirmation" autocomplete="new-password" required></div>
+  <button class="btn btn-brand" type="submit">Enregistrer</button>
+</form>{% endblock %}

@@ -6,7 +6,7 @@
     <a class="btn btn-brand" href="/interventions/nouveau?client_id={{ c.id }}"><i class="bi bi-plus-circle"></i> Intervention</a>
     <a class="btn btn-outline-secondary" href="/clients/{{ c.id }}/modifier"><i class="bi bi-pencil"></i> Modifier</a>
     <form method="post" action="/clients/{{ c.id }}/supprimer"
-      data-confirm="{{ 'Attention : ce client a ' ~ interventions|length ~ ' intervention(s) et ' ~ factures|length ~ ' facture(s) liées. Tout sera supprimé définitivement. Continuer ?' if interventions else 'Supprimer ce client ?' }}">
+      data-confirm="{{ 'Attention : ce client a ' ~ interventions|length ~ ' intervention(s) et ' ~ factures|length ~ ' facture(s) liées. Tout sera supprimé définitivement. Continuer ?' if interventions else 'Supprimer ce client ?' }}"><input type="hidden" name="csrf_token" value="{{ csrf_token }}">
       <input type="hidden" name="force" value="1"><button class="btn btn-outline-danger"><i class="bi bi-trash"></i> Supprimer</button></form></div></div>
 <div class="row g-3">
   <div class="col-lg-4"><div class="card"><div class="card-body">

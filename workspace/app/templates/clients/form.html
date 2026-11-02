@@ -2,7 +2,7 @@
 {% block content %}
 {% macro val(k) %}{{ form[k] if form and k in form else (client[k] if client else '') }}{% endmacro %}
 <h1 class="h3 mb-4">{{ 'Modifier le client' if client else 'Nouveau client' }}</h1>
-<form method="post" novalidate><div class="card"><div class="card-body row g-3">
+<form method="post" novalidate><input type="hidden" name="csrf_token" value="{{ csrf_token }}"><div class="card"><div class="card-body row g-3">
   <div class="col-md-6"><label class="form-label" for="nom">Nom *</label><input class="form-control" id="nom" name="nom" required value="{{ val('nom')|trim }}"></div>
   <div class="col-md-6"><label class="form-label" for="email">E-mail</label><input class="form-control" type="email" id="email" name="email" value="{{ val('email')|trim }}"></div>
   <div class="col-md-6"><label class="form-label" for="telephone">Téléphone</label><input class="form-control" id="telephone" name="telephone" value="{{ val('telephone')|trim }}"></div>
