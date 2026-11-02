@@ -1,0 +1,45 @@
+{% extends "base.html" %}{% block title %}Paramètres{% endblock %}
+{% block content %}
+{% set v = form if form else p %}
+{% macro val(k) %}{{ (form[k] if form is mapping and k in form else p[k]) if form else p[k] }}{% endmacro %}
+<h1 class="h3 mb-4">Paramètres de la société</h1>
+<form method="post" enctype="multipart/form-data" novalidate>
+<div class="row g-3">
+  <div class="col-lg-8"><div class="card"><div class="card-body row g-3">
+    <div class="col-md-6"><label class="form-label" for="nom_societe">Nom de la société *</label>
+      <input class="form-control" id="nom_societe" name="nom_societe" required value="{{ val('nom_societe')|trim }}"></div>
+    <div class="col-md-6"><label class="form-label" for="email">E-mail</label>
+      <input class="form-control" type="email" id="email" name="email" value="{{ val('email')|trim }}"></div>
+    <div class="col-12"><label class="form-label" for="adresse">Adresse</label>
+      <input class="form-control" id="adresse" name="adresse" value="{{ val('adresse')|trim }}"></div>
+    <div class="col-md-4"><label class="form-label" for="siret">SIRET</label>
+      <input class="form-control" id="siret" name="siret" value="{{ val('siret')|trim }}" placeholder="14 chiffres"></div>
+    <div class="col-md-4"><label class="form-label" for="tva_numero">N° de TVA</label>
+      <input class="form-control" id="tva_numero" name="tva_numero" value="{{ val('tva_numero')|trim }}"></div>
+    <div class="col-md-4"><label class="form-label" for="telephone">Téléphone</label>
+      <input class="form-control" id="telephone" name="telephone" value="{{ val('telephone')|trim }}"></div>
+    <div class="col-12"><label class="form-label" for="iban">IBAN</label>
+      <input class="form-control" id="iban" name="iban" value="{{ val('iban')|trim }}"></div>
+    <div class="col-12"><label class="form-label" for="conditions_paiement">Conditions de paiement</label>
+      <input class="form-control" id="conditions_paiement" name="conditions_paiement" value="{{ val('conditions_paiement')|trim }}">
+      <div class="form-text">Ex. « Paiement à 30 jours » : le nombre de jours fixe l'échéance des factures.</div></div>
+    <div class="col-12"><label class="form-label" for="mentions_legales">Mentions légales (pied de facture)</label>
+      <textarea class="form-control" rows="3" id="mentions_legales" name="mentions_legales">{{ val('mentions_legales')|trim }}</textarea></div>
+  </div></div></div>
+  <div class="col-lg-4"><div class="card"><div class="card-body row g-3">
+    <div class="col-12"><label class="form-label" for="logo">Logo (PNG ou JPEG, 2 Mo max)</label>
+      {% if p.logo %}<div class="mb-2"><img src="/static/uploads/{{ p.logo }}" alt="Logo actuel" style="max-height:60px"></div>{% endif %}
+      <input class="form-control" type="file" id="logo" name="logo" accept="image/png,image/jpeg"></div>
+    <div class="col-6"><label class="form-label" for="prefixe_facture">Préfixe facture</label>
+      <input class="form-control" id="prefixe_facture" name="prefixe_facture" value="{{ val('prefixe_facture')|trim }}"></div>
+    <div class="col-6"><label class="form-label" for="prochain_numero_facture">Prochain n°</label>
+      <input class="form-control" type="number" min="1" id="prochain_numero_facture" name="prochain_numero_facture" value="{{ val('prochain_numero_facture')|trim }}"></div>
+    <div class="col-6"><label class="form-label" for="tva_defaut">TVA par défaut (%)</label>
+      <input class="form-control" id="tva_defaut" name="tva_defaut" value="{{ val('tva_defaut')|trim }}"></div>
+    <div class="col-6"><label class="form-label" for="couleur_principale">Couleur principale</label>
+      <input class="form-control form-control-color w-100" type="color" id="couleur_principale" name="couleur_principale" value="{{ val('couleur_principale')|trim }}"></div>
+  </div></div></div>
+</div>
+<button class="btn btn-brand mt-3" type="submit"><i class="bi bi-check-lg"></i> Enregistrer</button>
+</form>
+{% endblock %}

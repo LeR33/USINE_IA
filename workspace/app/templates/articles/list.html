@@ -1,0 +1,24 @@
+{% extends "base.html" %}{% block title %}Articles{% endblock %}
+{% block content %}
+<div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+  <h1 class="h3 mb-0">Catalogue articles et prestations</h1>
+  <a href="/articles/nouveau" class="btn btn-brand"><i class="bi bi-plus-circle"></i> Nouvel article</a></div>
+<form class="row g-2 mb-3" method="get">
+  <div class="col-md"><input class="form-control" name="q" value="{{ q }}" placeholder="Rechercher (référence, désignation)…"></div>
+  <div class="col-md-3"><select class="form-select" name="categorie" onchange="this.form.submit()"><option value="">Toutes catégories</option>
+    {% for c in CATEGORIES %}<option {{ 'selected' if c == categorie }}>{{ c }}</option>{% endfor %}</select></div>
+  <div class="col-auto"><button class="btn btn-outline-secondary"><i class="bi bi-search"></i></button></div></form>
+<div class="card"><div class="table-responsive">
+{% if articles %}
+<table class="table table-hover align-middle mb-0" data-table>
+  <thead><tr><th class="sortable">Réf.</th><th class="sortable">Désignation</th><th class="sortable">Catégorie</th><th class="sortable text-end">Prix HT</th><th class="sortable">TVA</th><th>Unité</th><th>Actif</th><th></th></tr></thead>
+  <tbody>{% for a in articles %}<tr>
+    <td>{{ a.reference or '' }}</td><td class="fw-semibold">{{ a.designation }}</td><td>{{ a.categorie }}</td>
+    <td class="text-end" data-sort="{{ a.prix_ht }}">{{ a.prix_ht|eur }}</td><td>{{ '%g'|format(a.tva) }} %</td><td>{{ a.unite }}</td>
+    <td>{% if a.actif %}<span class="badge text-bg-success">Oui</span>{% else %}<span class="badge text-bg-secondary">Non</span>{% endif %}</td>
+    <td class="text-end text-nowrap"><a class="btn btn-sm btn-outline-secondary" href="/articles/{{ a.id }}/modifier"><i class="bi bi-pencil"></i></a>
+      <form class="d-inline" method="post" action="/articles/{{ a.id }}/supprimer" data-confirm="Supprimer l'article « {{ a.designation }} » ?">
+        <button class="btn btn-sm btn-outline-danger"><i class="bi bi-trash"></i></button></form></td></tr>{% endfor %}</tbody></table>
+{% else %}<div class="empty"><i class="bi bi-box-seam"></i><h5 class="mt-2">{{ 'Aucun résultat' if (q or categorie) else 'Le catalogue est vide' }}</h5>
+  <a href="/articles/nouveau" class="btn btn-brand mt-2">Ajouter un article</a></div>{% endif %}
+</div></div>{% endblock %}

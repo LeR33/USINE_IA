@@ -1,0 +1,17 @@
+{% extends "base.html" %}{% block title %}{{ 'Modifier' if a else 'Nouvel' }} article{% endblock %}
+{% block content %}
+{% macro val(k, d='') %}{{ form[k] if form and k in form else (a[k] if a else d) }}{% endmacro %}
+<h1 class="h3 mb-4">{{ "Modifier l'article" if a else 'Nouvel article' }}</h1>
+<form method="post" novalidate><div class="card"><div class="card-body row g-3">
+  <div class="col-md-3"><label class="form-label" for="reference">Référence</label><input class="form-control" id="reference" name="reference" value="{{ val('reference')|trim }}"></div>
+  <div class="col-md-9"><label class="form-label" for="designation">Désignation *</label><input class="form-control" id="designation" name="designation" required value="{{ val('designation')|trim }}"></div>
+  <div class="col-md-3"><label class="form-label" for="prix_ht">Prix HT (€) *</label><input class="form-control" id="prix_ht" name="prix_ht" inputmode="decimal" value="{{ val('prix_ht', '0')|trim }}"></div>
+  <div class="col-md-3"><label class="form-label" for="tva">TVA (%)</label><input class="form-control" id="tva" name="tva" inputmode="decimal" value="{{ val('tva', p.tva_defaut)|trim }}"></div>
+  <div class="col-md-3"><label class="form-label" for="unite">Unité</label><input class="form-control" id="unite" name="unite" value="{{ val('unite', 'u')|trim }}"></div>
+  <div class="col-md-3"><label class="form-label" for="categorie">Catégorie</label><select class="form-select" id="categorie" name="categorie">
+    {% for c in CATEGORIES %}<option {{ 'selected' if c == val('categorie', "main d'oeuvre")|trim }}>{{ c }}</option>{% endfor %}</select></div>
+  <div class="col-12 form-check ms-2"><input class="form-check-input" type="checkbox" id="actif" name="actif" value="on"
+     {{ 'checked' if (form.get('actif') == 'on' if form else (a.actif if a else True)) }}><label class="form-check-label" for="actif">Article actif (proposé dans les interventions et factures)</label></div>
+</div></div>
+<button class="btn btn-brand mt-3" type="submit">Enregistrer</button> <a href="/articles" class="btn btn-outline-secondary mt-3">Annuler</a></form>
+{% endblock %}

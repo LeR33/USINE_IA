@@ -1,0 +1,22 @@
+{% extends "base.html" %}{% block title %}Factures{% endblock %}
+{% block content %}
+<div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+  <h1 class="h3 mb-0">Factures</h1><a href="/factures/nouvelle" class="btn btn-brand"><i class="bi bi-plus-circle"></i> Nouvelle facture</a></div>
+<form class="row g-2 mb-3" method="get">
+  <div class="col-md"><input class="form-control" name="q" value="{{ q }}" placeholder="N° de facture ou client…"></div>
+  <div class="col-md-3"><select class="form-select" name="statut" onchange="this.form.submit()"><option value="">Tous les statuts</option>
+    {% for s in STATUTS_FACTURE %}<option {{ 'selected' if s == statut }}>{{ s }}</option>{% endfor %}</select></div>
+  <div class="col-auto"><button class="btn btn-outline-secondary"><i class="bi bi-search"></i></button></div></form>
+<div class="card"><div class="table-responsive">
+{% if factures %}
+<table class="table table-hover align-middle mb-0" data-table>
+  <thead><tr><th class="sortable">N°</th><th class="sortable">Client</th><th class="sortable">Émission</th><th class="sortable">Échéance</th><th class="sortable text-end">Total TTC</th><th class="sortable">Statut</th><th></th></tr></thead>
+  <tbody>{% for f in factures %}{% set s = f.statut_effectif %}<tr>
+    <td><a class="fw-semibold text-decoration-none" href="/factures/{{ f.id }}">{{ f.numero }}</a></td><td>{{ f.client.nom }}</td>
+    <td data-sort="{{ f.date_emission.isoformat() }}">{{ f.date_emission|datefr }}</td><td data-sort="{{ f.date_echeance.isoformat() }}">{{ f.date_echeance|datefr }}</td>
+    <td class="text-end" data-sort="{{ f.total_ttc }}">{{ f.total_ttc|eur }}</td>
+    <td><span class="badge text-bg-{{ {'brouillon':'secondary','envoyée':'info','payée':'success','en retard':'danger'}[s] }}">{{ s }}</span></td>
+    <td class="text-end text-nowrap"><a class="btn btn-sm btn-outline-secondary" href="/factures/{{ f.id }}/pdf" target="_blank" title="PDF"><i class="bi bi-file-earmark-pdf"></i></a></td></tr>{% endfor %}</tbody></table>
+{% else %}<div class="empty"><i class="bi bi-receipt"></i><h5 class="mt-2">Aucune facture</h5>
+  <a href="/factures/nouvelle" class="btn btn-brand mt-2">Créer une facture</a></div>{% endif %}
+</div></div>{% endblock %}

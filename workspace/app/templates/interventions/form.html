@@ -1,0 +1,57 @@
+{% extends "base.html" %}{% block title %}{{ 'Modifier' if itv else 'Nouvelle' }} intervention{% endblock %}
+{% block content %}
+{% macro val(k, d='') %}{% if form and k in form %}{{ form[k] }}{% elif itv %}{{ itv[k] if itv[k] is not none else d }}{% else %}{{ defaults.get(k, d) }}{% endif %}{% endmacro %}
+<h1 class="h3 mb-4">{{ 'Modifier ' ~ itv.numero if itv else 'Nouvelle intervention' }}</h1>
+<form method="post" novalidate id="itvForm">
+<div class="card mb-3"><div class="card-body row g-3">
+  <div class="col-md-6"><label class="form-label" for="client_id">Client *</label><select class="form-select" id="client_id" name="client_id" required>
+    <option value="">Choisir…</option>{% for c in clients %}<option value="{{ c.id }}" {{ 'selected' if c.id|string == val('client_id')|trim }}>{{ c.nom }}</option>{% endfor %}</select></div>
+  <div class="col-md-6"><label class="form-label" for="statut">Statut</label><select class="form-select" id="statut" name="statut">
+    {% for s in STATUTS_INTERVENTION %}<option {{ 'selected' if s == val('statut', 'planifiée')|trim }}>{{ s }}</option>{% endfor %}</select></div>
+  <div class="col-md-3"><label class="form-label" for="date">Date *</label><input type="date" class="form-control" id="date" name="date" required value="{{ val('date')|trim }}"></div>
+  <div class="col-md-3"><label class="form-label" for="heure_debut">Début</label><input type="time" class="form-control" id="heure_debut" name="heure_debut" value="{{ val('heure_debut', '08:00')|trim }}"></div>
+  <div class="col-md-3"><label class="form-label" for="heure_fin">Fin</label><input type="time" class="form-control" id="heure_fin" name="heure_fin" value="{{ val('heure_fin', '09:00')|trim }}"></div>
+  <div class="col-md-3"><label class="form-label">Durée</label><input class="form-control" id="duree" readonly></div>
+  <div class="col-md-6"><label class="form-label" for="type">Type</label><input class="form-control" id="type" name="type" list="types" value="{{ val('type', 'Dépannage')|trim }}">
+    <datalist id="types"><option>Dépannage</option><option>Entretien</option><option>Installation</option><option>Mise en service</option><option>Recherche de fuite</option></datalist></div>
+  <div class="col-md-6"><label class="form-label" for="technicien">Technicien</label><input class="form-control" id="technicien" name="technicien" value="{{ val('technicien')|trim }}"></div>
+  <div class="col-12"><label class="form-label" for="description">Description</label><textarea class="form-control" rows="3" id="description" name="description">{{ val('description')|trim }}</textarea></div>
+</div></div>
+<div class="card"><div class="card-body">
+  <div class="d-flex justify-content-between align-items-center mb-2"><h2 class="h6 mb-0">Lignes d'articles</h2>
+    <div class="d-flex gap-2"><select class="form-select form-select-sm" id="catalogue" style="min-width:230px"><option value="">+ Ajouter depuis le catalogue…</option></select>
+    <button type="button" class="btn btn-sm btn-outline-secondary" id="addLine">+ Ligne libre</button></div></div>
+  <div class="table-responsive"><table class="table align-middle" id="lines"><thead><tr><th>Désignation</th><th style="width:100px">Qté</th><th style="width:130px">Prix HT</th><th style="width:100px">TVA %</th><th style="width:120px" class="text-end">Total HT</th><th></th></tr></thead><tbody></tbody></table></div>
+  <div class="text-end fw-bold">Total HT : <span id="totalHt">0,00 €</span></div>
+</div></div>
+<div class="mt-3 d-flex gap-2"><button class="btn btn-brand" type="submit">Enregistrer</button><a href="/interventions" class="btn btn-outline-secondary">Annuler</a></div>
+</form>{% endblock %}
+{% block scripts %}
+<script>
+const catalogue = {{ catalogue|tojson }};
+const existing = {{ ((itv.lignes|map(attribute='designation')|list, itv.lignes|map(attribute='quantite')|list, itv.lignes|map(attribute='prix_ht')|list, itv.lignes|map(attribute='tva')|list) if itv and not form else ([], [], [], []))|tojson }};
+const posted = {{ ([form.get('ligne_designation', []), form.get('ligne_quantite', []), form.get('ligne_prix', []), form.get('ligne_tva', [])] if form else [[], [], [], []])|tojson }};
+const tbody = document.querySelector('#lines tbody'), sel = document.getElementById('catalogue');
+catalogue.forEach(a => sel.add(new Option(`${a.designation} (${a.prix_ht} € HT)`, a.id)));
+function addLine(d = '', q = 1, p = 0, t = {{ p.tva_defaut }}) {
+  const tr = document.createElement('tr');
+  tr.innerHTML = `<td><input class="form-control form-control-sm" name="ligne_designation" required></td>
+    <td><input class="form-control form-control-sm" name="ligne_quantite" inputmode="decimal"></td>
+    <td><input class="form-control form-control-sm" name="ligne_prix" inputmode="decimal"></td>
+    <td><input class="form-control form-control-sm" name="ligne_tva" inputmode="decimal"></td>
+    <td class="text-end tot">0,00 €</td><td><button type="button" class="btn btn-sm btn-outline-danger" aria-label="Supprimer la ligne"><i class="bi bi-x"></i></button></td>`;
+  const [i1, i2, i3, i4] = tr.querySelectorAll('input'); i1.value = d; i2.value = q; i3.value = p; i4.value = t;
+  tr.querySelector('button').onclick = () => { tr.remove(); recalc(); };
+  tr.addEventListener('input', recalc); tbody.appendChild(tr); recalc();
+}
+const num = v => parseFloat(String(v).replace(',', '.')) || 0, fmt = v => v.toFixed(2).replace('.', ',') + ' €';
+function recalc() { let s = 0; tbody.querySelectorAll('tr').forEach(tr => { const [, q, p] = tr.querySelectorAll('input'); const t = num(q.value) * num(p.value); tr.querySelector('.tot').textContent = fmt(t); s += t; });
+  document.getElementById('totalHt').textContent = fmt(s); }
+function duree() { const [a, b] = ['heure_debut', 'heure_fin'].map(i => document.getElementById(i).value.split(':').map(Number));
+  const m = (b[0] * 60 + b[1]) - (a[0] * 60 + a[1]); document.getElementById('duree').value = m > 0 ? `${Math.floor(m / 60)} h ${String(m % 60).padStart(2, '0')}` : '—'; }
+['heure_debut', 'heure_fin'].forEach(i => document.getElementById(i).addEventListener('input', duree)); duree();
+document.getElementById('addLine').onclick = () => addLine();
+sel.onchange = () => { const a = catalogue.find(x => x.id == sel.value); if (a) addLine(a.designation, 1, a.prix_ht, a.tva); sel.value = ''; };
+const src = posted[0].length ? posted : existing;
+src[0].forEach((_, i) => addLine(src[0][i], src[1][i], src[2][i], src[3][i]));
+</script>{% endblock %}
